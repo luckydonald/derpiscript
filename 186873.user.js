@@ -29,7 +29,8 @@
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.js
 // @updateURL      https://resources.flutterb.at/userscript/186873.user.js
 // @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
-// @version        0.1.3.9
+// @version        0.1.4.0
+// @history        0.1.4.0 changed tag highlighting to be less annoying : ) | fixed preferences. | fixed emergency hide button.
 // @history        0.1.3.9 notification, if new update is available. | updated jquery from  1.2.6 to 1.11.1 (wow) | changelog now use state-of-the-art css! | added feedback if forced version check has no new version.
 // @history        0.1.3.8 setting now attached to normal derpibooru settings tabs. Click "Derpiscript" tab to access the settings. | added different tag coloring for watched, spoilered and hidden tags. | added rudimentary error display when script Version detections randomly dies. Error seems to be a Greasemonkey related bug. (Error: Greasemonkey access violation: unsafeWindow cannot call GM_*).
 // @history        0.1.3.7 fixed likeButton, now working again. | settings moved to derpibooru settings page. | changelog will now be displayed on version change. | now parsing the @history tags to have changelog in one place. | clicking on version string in settings now opens changelog window too.
@@ -53,39 +54,39 @@
     //  - at the moment they are available at each image page, just scoll aaaaall the way down...
     //  - they will be available at http://derbibooru.org/#settings (or other similar domains, see @include 's above)
 
-    var useRawFile = false; 
+    var d_useRawFile = false; 
     //Set to true  to use the number only filename, e.g. "197941.png"
     //Set to false t0 use the full filename, e.g. "197941__safe_rainbow+dash_artist-colon-luckydonald.png"
     //Default is false.
 	
-	var rateOnDownload = true;
+	var d_rateOnDownload = true;
     //Set to true  to enable the automatic like/fave* when downloading the image.
     //Set to false to disable the automatic like/fave* function.
     // *) Specify in next line.
     //Default is true.
     
-	var useVoteUp = true;
+	var d_useVoteUp = true;
 	//Set to true  to automaticly Vote Up when downloading the image.
     //Set to true  to automaticly Fave the image when downloading the image.
     //Default is true.
     
     
-    var buttonMoveMode = 1; 
+    var d_buttonMoveMode = 1; 
     //Set to 0 to disable Button resizing/moving.
     //Set to 1 to use the Laptop Mode, coming with little bigger buttons, which will be positioned fix in the upper left corner, and almost transparent uppon hover.
     //Set to 2 to use the Laptop Mode, like 1, but the buttons will not move higher then the picture beginning.
     //Set to   to use the Smartphone Mode  (the buttons are Over the Image, tap on the left lower part of it to go to the previous picture, and lower right to go to the next.
     //Default is 1.
-	var buttonPosMode = 1; 
+	var d_buttonPositionMode = 1; 
     
-    var backgroundColor = "#FFFFFF";
+    var d_backgroundColor = "#FFFFFF";
     // Set the backgrund color. 
     // Defaut is #FFFFFF
-	var linkColor = "#57a4db";
-    var downloadedPictures = "|"; //array with image numbers as string, seperated by "|" (to be crossdomain conform and save space). Also starting and Ending with "|"s.
-	var lastScriptVersion = "Not installed."; //version Check.
-	var hideAds = true;
-
+	var d_linkColor = "#57a4db";
+    var d_downloadedPictures = "|"; //array with image numbers as string, seperated by "|" (to be crossdomain conform and save space). Also starting and Ending with "|"s.
+	var d_lastScriptVersion = "Not installed."; //version Check.
+	var d_hideAds = true;
+	var d_tagColors = true;
 // End of User Settings.
 // Do not modify the Script below.
 // Licenced under a Woona-Will-Cry-If-You-Modify-Or-Distribute-This 1.0 Licence.
@@ -96,35 +97,34 @@ var bestPony;
 bestPony = "Daring Do"; //Moud comes pretty close too...
 
 //Dump it into the database and prefer the already stored part
-useRawFile = GM_getValue('useRawFile',useRawFile);
-             GM_setValue('useRawFile',useRawFile);
-rateOnDownload = GM_getValue('rateOnDownload',rateOnDownload);
-                 GM_setValue('rateOnDownload',rateOnDownload);
-useVoteUp = GM_getValue('useVoteUp',useVoteUp);
-            GM_setValue('useVoteUp',useVoteUp);
-buttonMoveMode = GM_getValue('buttonMoveMode',buttonMoveMode);
-             GM_setValue('buttonMoveMode',buttonMoveMode);
-buttonPosMode = GM_getValue('buttonPositionMode',buttonPosMode);
-             GM_setValue('buttonPositionMode',buttonPosMode);
-backgroundColor = GM_getValue('backgroundColor',backgroundColor);
-                  GM_setValue('backgroundColor',backgroundColor);
-linkColor = GM_getValue('linkColor',linkColor);
-                  GM_setValue('linkColor',linkColor);
-				  //alert(stringify(new Array("")));
-				  //console.log(JSON.parse('[""]'));
-downloadedPictures = GM_getValue('downloadedPictures',downloadedPictures);
-                  GM_setValue('downloadedPictures',downloadedPictures);
-lastScriptVersion = GM_getValue('lastScriptVersion',lastScriptVersion);
-                  GM_setValue('lastScriptVersion',lastScriptVersion);
-hideAds = GM_getValue('hideAds',hideAds);
-                  GM_setValue('hideAds',hideAds);
-
+var gm_useRawFile = GM_getValue('useRawFile',d_useRawFile);
+             GM_setValue('useRawFile',gm_useRawFile);
+var gm_rateOnDownload = GM_getValue('rateOnDownload',d_rateOnDownload);
+                 GM_setValue('rateOnDownload',gm_rateOnDownload);
+var gm_useVoteUp = GM_getValue('useVoteUp',d_useVoteUp);
+            GM_setValue('useVoteUp',gm_useVoteUp);
+var gm_buttonMoveMode = GM_getValue('buttonMoveMode',d_buttonMoveMode);
+             GM_setValue('buttonMoveMode',gm_buttonMoveMode);
+var gm_buttonPositionMode = GM_getValue('buttonPositionMode',d_buttonPositionMode);
+             GM_setValue('buttonPositionMode',gm_buttonPositionMode);
+var gm_backgroundColor = GM_getValue('backgroundColor',d_backgroundColor);
+                  GM_setValue('backgroundColor',gm_backgroundColor);
+var gm_linkColor = GM_getValue('linkColor',d_linkColor);
+                  GM_setValue('linkColor',gm_linkColor);
+var gm_downloadedPictures = GM_getValue('downloadedPictures',d_downloadedPictures);
+                  GM_setValue('downloadedPictures',gm_downloadedPictures);
+var gm_lastScriptVersion = GM_getValue('lastScriptVersion',d_lastScriptVersion);
+                  GM_setValue('lastScriptVersion',gm_lastScriptVersion);
+var gm_hideAds = GM_getValue('hideAds',d_hideAds);
+                  GM_setValue('hideAds',gm_hideAds);
+var gm_tagColors = GM_getValue('tagColors',d_tagColors);
+		GM_setValue('tagColors',gm_tagColors);
 
 //getPageType(window.location.pathname);
 
 				  //return;
 var changelog_bg;
-doVersionCheck(lastScriptVersion, scriptVersion);
+doVersionCheck(gm_lastScriptVersion, scriptVersion);
 var page = getPageType(window.location.pathname);
 console.log(page);
 doPageType(page);
@@ -469,12 +469,13 @@ function doPageType(p){
 /**
  *
  * Returns array containing at least:
- * {type:String, isImage:boolean, isAlbum: boolean, url:url}
+ * {type:String, emergencyHide:boolean, isImage:boolean, isAlbum: boolean, url:url}
  *
  * Single Images:
- * {type:"image", isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m, links: {<see below>}, data:{<see below>}};
+ * {type:"image", emergencyHide:false, overlaymode:0, isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m, links: {<see below>}, data:{<see below>}};
+ * 		overlaymode: 0: default image,  1: image zoom
  * 		Links Array: links = {img_full:"", img_dl:"", page_next:"", page_prev:"", page_rand:"", ready:false};
- *		Data Array: {img_dl_frame: null};
+ *		Data  Array:  data = {img_dl_frame: null};
  * 
  **/
 
@@ -487,20 +488,20 @@ function getPageType(url){
 			imgNumber = m[2];
 			var dataarray = {img_dl_frame: null};
 			var linkarray = {img_full:"",img_dl:"",page_next:"",page_prev:"",page_rand:"", ready:false};
-			return {type:"image", isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m, links: linkarray, data: dataarray};
+			return {type:"image", emergencyHide:false, isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m, links: linkarray, data: dataarray};
 		}
 		var albumRegex = new RegExp("\\/tags\\/([a-z0-9\\-]+)(.*?)"); //ALBUM pages with a number
 		var m = albumRegex.exec(url);
 		if (m != null) {
-			return {type:"album", isImage:false, isAlbum: true, url:url, albumType: "tag",  tag: m[1], matcharray: m};
+			return {type:"album", emergencyHide:false, isImage:false, isAlbum: true, url:url, albumType: "tag",  tag: m[1], matcharray: m};
 		}
 		//TODO: implement settings at "/settings"
 		//TODO: move settings there.
 		if (url == "/settings"){
-			return {type:"settings", isImage:false, isAlbum: false, url:url};
+			return {type:"settings", emergencyHide:false, isImage:false, isAlbum: false, url:url};
 		}
 		submitUnhandledUrl(url);
-		return {type:"error", message:"No matching page found.", isImage:false, isAlbum: false, url:url};
+		return {type:"error", emergencyHide:false, message:"No matching page found.", isImage:false, isAlbum: false, url:url};
 }
 function submitUnhandledUrl(url){
 	var err_message = "ERROR:\n" 
@@ -875,24 +876,33 @@ function checkColor(color){
 
 
 function show_img(imgUrl){
+	img_div = $id("derpiscript-img-div");
+	img_status = $id("derpiscript-img-status");
+	img_img = $id("derpiscript-img-img");
+	all_ = $id("derpiscript-img-overlay-content");
  	img_status.innerHTML ='loading...';
  	img_status.style.display='block';
  	img_img.style.display='none';
  	img_div.style.display='block';
  	scrollTo(0,0);
- 	//GM_setValue("current_luscious_mode", 2);
  	img_img.src=imgUrl;
  	img_img.addEventListener("load" , final_img);
- 	if(loaded){
+ 	/*if(loaded){
  	 	all_.style.display='none';
-	}else{
- 		all_.style.visibility='collapse';
- 		loaded=true;
- 	}
+	}else{*/
+	all_.style.visibility='collapse';
+ 		/*loaded=true;
+ 	}*/
 
 
 }
+/*
 function show_img(imgUrl){
+	img_div = $id("derpiscript-img-div");
+	img_status = $id("derpiscript-img-status");
+	img_img = $id("derpiscript-img-img");
+	all_ = $id("derpiscript-img-overlay-content");
+
  	img_status.innerHTML ='loading...';
  	img_status.style.display='block';
  	img_img.style.display='none';
@@ -909,25 +919,29 @@ function show_img(imgUrl){
  		loaded=true;
  	}
 }
+*/
 var pron=false;
 /**
  * Function to hide everything, in case you get catched.
  **/
 function prono(){
-if (!pron){
- 	img_cover.innerHTML ='Loading...';
- 	img_cover.style.color ='black';
- 	img_cover.style.backgroundColor ='white';
- 	img_cover.style.display='block';
- 	img_cover.style.width='10000em';
- 	img_cover.style.heigth='10000em';
- 	img_cover.style.height='10000em';
- 	img_div.style.display='block';
- 	scrollTo(0,0);
- 	pron=true;
- 	}
- 	else {
- 	pronor();
+	if (!pron){
+		img_cover = $id("derpiscript-img-cover");
+		img_div = $id("derpiscript-img-div");
+
+		img_cover = $id("derpiscript-img-cover");
+		img_cover.innerHTML ='Loading...';
+		img_cover.style.color ='black';
+		img_cover.style.backgroundColor ='white';
+		img_cover.style.display='block';
+		img_cover.style.width='10000em';
+		img_cover.style.heigth='10000em';
+		img_cover.style.height='10000em';
+		img_div.style.display='block';
+		scrollTo(0,0);
+		pron=true;
+	} else {
+		pronor();
     }
  	//GM_setValue("current_luscious_mode", 2);
  
@@ -937,11 +951,16 @@ if (!pron){
  * Function to show everything, the opposite of hiding (and the prono(); function) .
  **/
 function pronor(){
+	img_cover = $id("derpiscript-img-cover");
 	img_cover.style.display='none';
 	window.scrollTo(0,0);
 	pron=false;
 }
 function hide_img(){
+	img_div = $id("derpiscript-img-div");
+	img_img = $id("derpiscript-img-img");
+	all_ = $id("derpiscript-img-overlay-content");
+	
 	img_img.src='';
 	img_img.style.display='';
 	img_div.style.display='none';
@@ -952,6 +971,10 @@ function hide_img(){
 	current_mode = 1;
 }
 function final_img(){
+	img_status = $id("derpiscript-img-status");
+	img_img = $id("derpiscript-img-img");
+
+
 	img_img.style.display='block';
 	img_status.innerHTML ='-';
 	img_status.style.display='none';
@@ -961,11 +984,12 @@ function final_img(){
 
 function img_goto(symbl){
 	if(symbl=='#'){ //zoom
-		if (current_mode==1){
-			//var new_url = img_list[GM_getValue("current_luscious_picture")].src.replace("thumb_100_","");
-			show_img(full_img_src);
+		if (!page.emergencyHide && page.overlaymode == 0){
+			if(page.isImage) {
+				show_img(page.links.img_full); 
+			}
 			
-		}else if (current_mode==2){ //TODO: does this var exist?
+		}else if (page.emergencyHide || page.overlaymode == 1){ //TODO: does this var exist?
 			hide_img(); 
 		}
 		return;
@@ -1007,8 +1031,8 @@ function bookmark(){
     //$("input[id^='vote']").val('news here!');
     //$("span[id^='vote_up_']").dispatchEvent (clickEvent);
     //$("a[caption='Up']")[0].dispatchEvent (clickEvent);		
-    var upvote_span = (useVoteUp ? $(".vote_up_link")[0] : $(".fave_link")[0]); //depends on user settings for fave/vote
-	if((useVoteUp ? upvote_span.getAttribute("class").contains("voted_up") : upvote_span.getAttribute("class").contains("faved") )) { //if was not in db, but is voted
+    var upvote_span = (gm_useVoteUp ? $(".vote_up_link")[0] : $(".fave_link")[0]); //depends on user settings for fave/vote
+	if((gm_useVoteUp ? upvote_span.getAttribute("class").contains("voted_up") : upvote_span.getAttribute("class").contains("faved") )) { //if was not in db, but is voted
 		//do nothing
 		return;
 	} //else (if is not in db, and is not voted)
@@ -1025,7 +1049,7 @@ function bookmark(){
 
 	var is_already_voted = appendDownloaded();//implement with button, to force redownload.
     if(!is_already_voted){
-		if((useVoteUp ? upvote_span.getAttribute("class").contains("voted_up") : upvote_span.getAttribute("class").contains("faved") )) { //if was not in db, but is voted
+		if((gm_useVoteUp ? upvote_span.getAttribute("class").contains("voted_up") : upvote_span.getAttribute("class").contains("faved") )) { //if was not in db, but is voted
 			//do nothing
 			return;
 		} //else (if is not in db, and is not voted
@@ -1180,12 +1204,12 @@ function setBigButtonPos(button,number){
 }
 
 function checkButtonPos(y){
-    if( (buttonMoveMode != 2 && buttonMoveMode != 3) || buttonPosMode == 2) { //stay on top
+    if( (gm_buttonMoveMode != 2 && gm_buttonMoveMode != 3) || gm_buttonPositionMode == 2) { //stay on top
         return;
     }
 	var button = $_("hoverboxthingie");
 	var h = getWindowSize().h;
-	if(buttonPosMode == 3) {
+	if(gm_buttonPositionMode == 3) {
 		var transform = "translateY(" + (h-60) + "px)";
 		button.style.position = "fixed";
 		button.style.webkitTransform = transform;
@@ -1193,7 +1217,7 @@ function checkButtonPos(y){
 		button.style.transform = transform;
 	}else{
 		var scroll = getScrollXY().y;
-		var buttons_stops = GM_getValue('buttonMoveMode') == 3; //3 = Laptop Mode 2
+		var buttons_stops = gm_buttonMoveMode == 3; //3 = Laptop Mode 2
 		var transform = "translateY(" + (y < h/2 ? ((scroll-metasection_offset>0+30)||(!buttons_stops) ?0:metasection_offset-scroll+30) : h-60) + "px)";
 		button.style.position = "fixed";
 		button.style.webkitTransform = transform;
@@ -1609,20 +1633,27 @@ function create_page_settings(){
 			<div class="fieldlabel"> \n\
 				Set the link color. <br> Default is <code>#57A4DB</code>. \n\
 			</div> \n\
-			<div class="field"> \n\
-				<label for="script_styles_hide_ads">Hide Advertisements</label> \n\
-				<input id="script_styles_hide_ads" value="0" type="checkbox"> \n\
+			<div class="field"> \
+				<label for="script_styles_hide_ads">Hide Advertisements</label> \
+				<input id="script_styles_hide_ads" value="0" type="checkbox"> \
 			</div> \n\
 			<div class="fieldlabel"> \n\
-				Set to <code>true</code>  to hide ads.<br>Set to <code>false</code> show them. <br>Default is <code>true</code>.\n\
-			</div> \n\
-			<div class="field"> \n\
-				<label for="script_save_reset"> </label> \n\
-				<input type=\"button\" id=\"script_save_reset\" class=\"element reset button\" value=\"Reset\"/>                                                                                                                                                                    \n\
+				Set to <code>true</code>  to hide ads.<br>Set to <code>false</code> show them. <br>Default is <code>true</code>. \
+			</div> \
+			<div class="field"> \
+				<label for="script_styles_tag_colors">Missing Tag Colors</label> \
+				<input id="script_styles_tag_colors" value="1" type="checkbox"> \
 			</div> \n\
 			<div class="fieldlabel"> \n\
-				<p id=\"script_save_success\" class=\"\"></p>  \n\
-			</div> \n\
+				Adds color to watched, spoilered, hidden tags, to be distinguishable. <br><code>On</code> by Default. \
+			</div> \
+			<div class="field"> \
+				<label for="script_save_reset"> </label> \
+				<input type=\"button\" id=\"script_save_reset\" class=\"element reset button\" value=\"Reset\"/> \
+			</div> \
+			<div class="fieldlabel"> \
+				<p id=\"script_save_success\" class=\"\"></p>  \
+			</div> \
 	\
 	';
 	'\
@@ -1703,6 +1734,8 @@ function create_page_settings(){
 	setPickerColor("script_styles_color_bg", bgColor);
 	setPickerColor("script_styles_color_link", linkColor);
 	$id("script_styles_hide_ads").checked = GM_getValue('hideAds',true);
+	$id("script_styles_tag_colors").checked = GM_getValue('tagColors',true);
+	
 	bgPicker = $id("script_styles_color_bg");
 	bgPicker.addEventListener("input", function(){
 		setColorOfResult("bg");
@@ -1840,10 +1873,10 @@ function create_page_image(page){
 					linkCollection.img_full = each.href;
 					each.setAttribute('target', '_blank');
 					each.setAttribute('onclick', 'this.focus()');
-				}else if( each.innerHTML == "Download" && !useRawFile){
+				}else if( each.innerHTML == "Download" && !gm_useRawFile){
 					linkCollection.img_dl = each.href;
 					linkCollection.img_dl = linkCollection.img_dl.replace('http://','https://');
-				}else if( each.innerHTML == "DLS" && useRawFile){
+				}else if( each.innerHTML == "DLS" && gm_useRawFile){
 					linkCollection.img_dl = each.href;
 					linkCollection.img_dl = linkCollection.img_dl.replace('http://','https://');
 					/*
@@ -1863,18 +1896,20 @@ function create_page_image(page){
 	linkCollection.ready = true;
 	page.links = linkCollection;
 	// Vars ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	var current_mode = 1;
 
 	var loaded=false;
 
 	//Gui
 	var all_=document.createElement('div');
-	all_.id='own_content';
 	var img_div = document.createElement('div');
 	var img_status = document.createElement('h1');
 	var img_cover = document.createElement('h1');
+	all_.id='derpiscript-img-overlay-content';
+	img_div.id="derpiscript-img-div";
+	img_status.id="derpiscript-img-status";
+	img_cover.id="derpiscript-img-cover";
+	
 	img_div.style.display='none';
-
 	img_div.style.position = "absolute";
 	img_div.style.backgroundColor = "red";
 	img_div.style.left = "0";
@@ -1887,7 +1922,7 @@ function create_page_image(page){
 	img_cover.style.float='center';
 	img_cover.innerHTML ='-';
 	img_cover.style.display='none';
-
+	
 	var img_img=document.createElement('img');
 	img_img.src='';
 	img_img.style.display='none';
@@ -2003,7 +2038,7 @@ function create_page_image(page){
 					img_goto('r'); //random page
 			}
 		}else{
-		   //alert(e.keyCode);
+		   console.log('Pressed unegistered key "' + e.keyCode + '" with char code "' + e.charCode + '".');
 		}
 	}, false);
 }
@@ -2049,14 +2084,30 @@ function create_page_all() {
 	';
 	applyStyle(css, "custom-color-allpage");
 	css = '\
-	span.tag.tag-user-watched{ \n\
-		color:#333; \n\
-		background:#6A9F93; \n\
-		border-color:#3F7E70 \n\
-	} \n\
-	span.tag.tag-user-watched a { \n\
-		color:#307163 \n\
-	} \n\
+	span.tag.tag-user-watched{ \
+		color:#333; \
+		background:#6A9F93; \
+		border-color:#3F7E70; \
+	} \
+	span.tag.tag-user-watched a { \
+		color:#307163; \
+	} \
+	span.tag.tag-system{ \
+		color:#333; \
+		background:#B1CEE2; \
+		border-color: #4C90BD; \
+	} \
+	span.tag.tag-system a { \
+		color: #4C90BD; \
+	} \
+	span.tag.tag-ns-artist{ \
+		color:#333; \
+		background:#A2A6D4; \
+		border-color: #363B74; \
+	} \
+	span.tag.tag-ns-artist a { \
+		color: #363B74; \
+	} \
 	span.tag.tag-user-spoilered{ \n\
 		color:#333; \n\
 		background:#F6A7A5; \n\
@@ -2072,11 +2123,6 @@ function create_page_all() {
 	} \n\
 	span.tag.tag-user-hidden a { \n\
 		color:#8E3D69; \n\
-	} \n\
-	.tag-span-unwatched { \n\
-		color:#82AD2B; \n\
-		background:#CDE69A; \n\
-		border-color:#9ECF3C; \n\
 	} \n\
 	.tag-span-watched { \n\
 		color:#307163; \n\
@@ -2108,13 +2154,21 @@ function create_page_all() {
 		padding-right: 2px;			\
 	} 							\
 	';
-	//TODO: tag-system
-	//TODO: tag-ns-artist
+	var unused = '	.tag-span-unwatched { \n\
+		color:#82AD2B; \n\
+		background:#CDE69A; \n\
+		border-color:#9ECF3C; \n\
+	} \n\
+	'; //TODO: REMOVE
+	//TODO: tag-ns-spoiler ??
 	applyStyle(css, "tags-allpage");
 	/*$(".tag-list").find('.tag-span-unwatched').each(function(){
 		$(this).html($.trim($(this).html()));
 	});*/
-	$(".tag-list .dropdown_icon a ").find('span').each(function(){
+	/*$(".tag-list .dropdown_icon a ").find('span').each(function(){
+		$(this).html($.trim($(this).html()));
+	});*/
+	$(".tag.dropdown_container .dropdown_icon a ").find('span').each(function(){
 		$(this).html($.trim($(this).html()));
 	});
 	
@@ -2169,6 +2223,7 @@ function saveoptions(){
 	GM_setValue('backgroundColor',$id("script_styles_color_bg").value);//TODO: validate color as real color.
 	GM_setValue('linkColor', $id("script_styles_color_link").value);//TODO: validate color as real color.
 	GM_setValue('hideAds',$id("script_styles_hide_ads").checked); // hideAds
+	GM_setValue('tagColors',$id("script_styles_tag_colors").checked); // Advanced Tag Colors
 
 
     successfield.innerHTML = "Successfully saved. Please <a href='javascript:location.reload();' onclick='location.reload();'>refresh</a> the page.";
@@ -2190,6 +2245,7 @@ function resetoptions(){
     var backgroundColor = "#FFFFFF";
 	var linkColor = "#57A4DB";
 	var hideAds = true;
+	var tagColors = true;
 	
 	$id("script_download_tagged").checked = !useRawFile;
 	$id("script_download_vote_enabled").checked = rateOnDownload;
@@ -2206,6 +2262,7 @@ function resetoptions(){
 	setPickerColor("script_styles_color_bg", backgroundColor);
 	setPickerColor("script_styles_color_link", linkColor);
 	$id("script_styles_hide_ads").checked = hideAds;
+	$id("script_styles_tag_colors").checked = tagColors;
 
     successfield.innerHTML = "Did reset the settings, but <b>not</b> saved yet!";
     successfield.style.display = "block";
@@ -2213,7 +2270,7 @@ function resetoptions(){
     successfield.style.backgroundColor = "lightgray";
 }
 function setPickerColor(name,color){
-	contrastColor = getContrastYIQ_BW(backgroundColor);
+	contrastColor = getContrastYIQ_BW(color);
 	colorPickerElement = $id(name);
 	colorPickerElement.value = color; //backgroundColor
 	colorResultElement = $id(name + "_result");
@@ -2221,3 +2278,8 @@ function setPickerColor(name,color){
 	colorResultElement.style.backgroundColor = color; //backgroundColor
 	colorResultElement.style.color = contrastColor; //backgroundColor
 }
+
+
+var unused = '\
+<div class="flash darknotice"><strong>Are you an API user?</strong> We\'ve changed some of the previous API behaviour relating to comments and faves. <a href="/api">Find out more here</a>.</div>\
+';
