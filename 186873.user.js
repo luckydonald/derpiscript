@@ -505,7 +505,7 @@ function getPageType(url){		//Use window.location.pathname
 			return {type:"image", emergencyHide:false, isImage:true, isAlbum: false, isSearch: false, url:url,  image: imgNumber, matcharray: m, links: linkarray, data: dataarray};
 		}
 		if (url == "/settings"){
-			return {type:"settings", emergencyHide:false, isImage:false, isAlbum: false, url:url};
+			return {type:"settings", emergencyHide:false, isImage:false, isAlbum: false, isSearch: false, url:url};
 		}
 		if (url == "/search"){
 			return {type:"search", emergencyHide:false, isImage:false, isAlbum: false, isSearch: true, url:url};
@@ -521,19 +521,19 @@ function pageTypeAssert(p) {
 		assertIsDefined(p, "isAlbum") &&
 		assertIsDefined(p, "isSearch") &&
 		assertIsDefined(p, "url") &&
-		assertIsDefined(p, "foo") &&
+		//assertIsDefined(p, "") &&
 		true //to be able to copy&paste the lines still ending with '&&'.
 	) {
 		//everything ok
 	}else{
-		throw new Error("Error in Page type, has undefined value(s).");
+		throw new Error("Error in Page type, has undefined value.");
 	}
 		
 }
 function assertIsDefined(variable, name) {
 	if (variable[name] == undefined){
-		showWarning('Variable has illigal undefined property "' + name + '"');
-		console.error('Variable has undefined property "' + name + '".\n', variable);
+		showWarning('Derpiscript Error: Variable has illegal undefined property "' + name + '"');
+		console.error('Variable has illegal undefined property "' + name + '".\n', variable);
 		console.error(variable);
 		return false;
 	}
@@ -547,6 +547,7 @@ function submitUnhandledUrl(url){
 	showWarning(err_message);
 }
 function showWarning(err_message){	
+	//TODO: Gui instead of alert.
 	var warning_elem = document.createElement('a');
 	warning_elem.style.color = "#FFFFFF";
 	warning_elem.style.backgroundColor = "#FF0000";
@@ -1365,7 +1366,7 @@ function page_album_highlighter(jNode){
 }
 
 function create_search_addons(){
-	//TODO if enabled.
+	//TODO settings, if enabled.
 	var form = $("div.searchbox form");
 	var buttons = {
 		faves:   {obj: null, input: null, name: "faves",   on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-star"></i>', tooltip:"Faves"},
@@ -1594,6 +1595,7 @@ function create_page_settings(){
 	applyStyle(css, "settings");
 	//Settings
 
+	/*
 	settingsHTML="\
 	<a name=\"settings\" /></a>                                                                                                                                                                                                                                                                               \n\
 	<div id=\"settingsbox\" name=\"settingbox\" class=\"settingbox\">                                                                                                                                                                                                                                                                  \n\
@@ -1695,6 +1697,26 @@ function create_page_settings(){
 				   </div>                                                                                                                                                                                                                                                                                                \n\
 				</div> 																																																																													\n\
 			</div class=\"li\">                                                                                                                                                                                                                                                                                                 \n\
+			<div class=\"li\" id=\"li_search_addons\" >                                                                                                                                                                                                                                                                                         \n\
+				<label class=\"description\" for=\"element_search_addons\">Simpler Search</label>                                                                                                                                                                                                                                    \n\
+				<div class=\"grouper\" id=\"element_buttpos\">                                                                                                                                                                                                                                                              \n\
+				   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_search_addons_on\"><input id=\"element_buttpos_1\" name=\"element_buttpos\" class=\"element radio\" type=\"radio\" value=\"1\" />                                                                                                                                                    \n\
+						Enable</label>                                                                                                                                                                                                                                                            \n\
+						<p class=\"guidelines\" for=\"element_search_addons_on\"><small></small></p>                                                                                                                                                                                                    \n\
+				   </div>                                                                                                                                                                                                                                                                                                \n\
+				   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_buttpos_2\"><input id=\"element_buttpos_buttpos\" name=\"element_buttpos\" class=\"element radio\" type=\"radio\" value=\"2\" />                                                                                                                                                    \n\
+						Top</label>                                                                                                                                                                                                                                                                   \n\
+						<p class=\"guidelines\" for=\"element_buttpos_2\"><small>Buttons will be positioned fix in the upper left corner.</small></p>                                                                                 \n\
+				   </div>                                                                                                                                                                                                                                                                                                \n\
+				   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_buttpos_3\"><input id=\"element_buttpos_3\" name=\"element_buttpos\" class=\"element radio\" type=\"radio\" value=\"3\" />                                                                                                                                                    \n\
+						Bottom</label>                                                                                                                                                                                                                                                                             \n\
+						<p class=\"guidelines\" for=\"element_buttpos_3\"><small>Buttons will be positioned fix in the lower left corner.</small></p>                                                                                                                                  \n\
+					</div>                                                                                                                                                                                                                                                                                                \n\
+				</div>                                                                                                                                                                                                                                                                                                \n\
+			</div class=\"li\">  																																																									\n\
 			<div class=\"li\" id=\"li_0\" >                                                                                                                                                                                                                                                                                     \n\
 				<input type=\"button\" id=\"prefResetButton\" class=\"element reset button\" value=\"Reset\"/>                                                                                                                                                                    \n\
 				<input type=\"button\" id=\"prefSubmitButton\" class=\"element submit button\" value=\"Save\"/>                                                                                                                                                                    \n\
@@ -1707,7 +1729,7 @@ function create_page_settings(){
 	</div>                                                                                                                                                                                                                                                                                                    \n\
 	";
 	
-	
+	*/
 	
 
 	
@@ -1725,11 +1747,17 @@ function create_page_settings(){
 	$class("tabs").appendChild(tabname);
 	
 	newSettingsHTML = '\
+	\
 			<p> <strong>Derpiscript Settings</strong></p> \n\
+			\
+			\
 			<div class="fieldlabel"> \n\
 				<div id=\"script_version\" class=\"version\">Script Version: <span id=\"script_version_field\" class=\"versionField\">Error Displaying Version...</span></div></p> \n\
 			</div> \n\
+	\
 			<p> <strong>Download</strong></p> \n\
+			\
+			\
 			<div class="field"> \n\
 				<label for="script_download_tagged">Tagged File name</label>\n\
 				<input name="script[download_tagged]" value="1" type="hidden"><input checked="checked" id="script_download_tagged" name="user[download_tagged]" value="1" type="checkbox"> \n\
@@ -1753,8 +1781,9 @@ function create_page_settings(){
 			<div class="fieldlabel"> \n\
 				Set to <code>true</code> to automaticly Fave the image when downloading the image.<br>Set to <code>false</code> to automaticly Vote Up when downloading the image.<br>Default is <code>false</code>.   \n\
 			</div> \n\
-			\
+		\
 			<p> <strong>EasyButtons Mode</strong></p> \n\
+			\
 			\
 			<div class="field"> \n\
 				<label for="script_buttons_mode_1">Disable</label> \n\
@@ -1779,8 +1808,9 @@ function create_page_settings(){
 			<div class="fieldlabel"> \n\
 				Laptop Mode, like above, but the buttons will not move higher then the picture beginning. \n\
 			</div> \n\
-\
+		\
 			<p> <strong>EasyButtons Position</strong></p> \n\
+			\
 			\
 			<div class="field"> \n\
 				<label for="script_buttons_position_1"> Automatic</label> \n\
@@ -1805,8 +1835,72 @@ function create_page_settings(){
 			<div class="fieldlabel"> \n\
 				LaptopButtons will be positioned fix in the lower left corner. \n\
 			</div> \n\
+		\
+			<p> <strong>Better Search</strong></p> \n\
+			\
+			\
+			<div class="field"> \n\
+				<label for="script_search_enable">Enable</label> \n\
+				<input id="script_search_enable" name="script_search_enable" class="element checkbox" value="#FFFFFF" type="checkbox" /> \n\
+				</div> \n\
+				<div class="fieldlabel"> \n\
+					The search bar will have toogles to filter the results of your query with your faves, upvotes, uploads and watched images. You will toggle between only searching images with this attributes (green), without them (red) or ignoring it (no color).<br>\n\
+					Default is <code>true</code>. \n\
+				</div> \n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_search_defaults_faves">Default Faves</label> \n\
+				<select id="script_search_defaults_faves" name="script_search_defaults_faves" class="element select">\
+					<option selected="selected" value="last">Last value</option> \
+					<option value="">All results</option> \
+					<option value="only">Faves Only</option> \
+					<option value="not">No Faves</option></select> \
+				</div> \n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_search_defaults_upvotes">Default Upvotes</label> \n\
+				<select id="script_search_defaults_upvotes" name="script_search_defaults_upvotes" class="element select">\				<option selected="selected" value="last">Last value</option> \
+					<option value="">All results</option> \
+					<option value="only">Upvotes Only</option> \
+					<option value="not">No Upvotes</option></select> \
+				</div> \n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_search_defaults_uploads">Default Uploads</label> \n\
+				<select id="script_search_defaults_uploads" name="script_search_defaults_uploads" class="element select">\
+					<option selected="selected" value="last">Last value</option> \
+					<option value="">All results</option> \
+					<option value="only">Uploads Only</option> \
+					<option value="not">No Uploads</option></select> \
+				</div> \n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_search_defaults_watched">Default Watched</label> \n\
+				<select id="script_search_defaults_watched" name="script_search_defaults_watched" class="element select">\
+					<option selected="selected" value="last">Last value</option> \
+					<option value="">All results</option> \
+					<option value="only">Watched Only</option> \
+					<option value="not">No Watched</option></select> \
+				</div> \n\
+			</div> \n\
+			\
+			<div class="fieldlabel"> \n\
+				<code>Last value</code> to use the value you used last time.<br />\n\
+				<code>All results</code> to not filter anything per default.<br />\n\
+				<code>x Only</code> to search for images with this attribute.<br />\n\
+				<code>No x</code> to exclude images with have this attribute.<br />\n\
+				Default is <code>Last value</code>. \n\
+			</div> \n\
+			\
+			\
 	\
 			<p> <strong>Syles</strong></p> \n\
+			\
+			\
 			<div class="field"> \n\
 				<label for="script_styles_color_bg">Background Color</label> \n\
 				<input id="script_styles_color_bg" name="script_styles_color_bg" class="element colorpicker" value="#FFFFFF" type="color" /> \n\
@@ -1815,6 +1909,7 @@ function create_page_settings(){
 			<div class="fieldlabel"> \n\
 				 Set the backgrund color. <br> Default is <code>#FFFFFF</code>, but my recommendation is <code>#777777</code>.\n\
 			</div> \n\
+			\
 			<div class="field"> \n\
 				<label for="script_styles_color_link">Background Color</label> \n\
 				<input id="script_styles_color_link" name="script_styles_color_link" class="element colorpicker" value="#FFFFFF" type="color" /> \n\
@@ -1823,13 +1918,15 @@ function create_page_settings(){
 			<div class="fieldlabel"> \n\
 				Set the link color. <br> Default is <code>#57A4DB</code>. \n\
 			</div> \n\
+			\
 			<div class="field"> \
 				<label for="script_styles_hide_ads">Hide Advertisements</label> \
 				<input id="script_styles_hide_ads" value="0" type="checkbox"> \
 			</div> \n\
 			<div class="fieldlabel"> \n\
-				Set to <code>true</code>  to hide ads.<br>Set to <code>false</code> show them. <br>Default is <code>true</code>. \
+				Set to <code>true</code>  to hide ads.<br>Set to <code>false</code> show them. <br />Default is <code>true</code>. \
 			</div> \
+			\
 			<div class="field"> \
 				<label for="script_styles_tag_colors">Missing Tag Colors</label> \
 				<input id="script_styles_tag_colors" value="1" type="checkbox"> \
@@ -1837,6 +1934,7 @@ function create_page_settings(){
 			<div class="fieldlabel"> \n\
 				Adds color to watched, spoilered, hidden tags, to be distinguishable. <br><code>On</code> by Default. \
 			</div> \
+			\
 			<div class="field"> \
 				<label for="script_save_reset"> </label> \
 				<input type=\"button\" id=\"script_save_reset\" class=\"element reset button\" value=\"Reset\"/> \
@@ -1846,7 +1944,7 @@ function create_page_settings(){
 			</div> \
 	\
 	';
-	'\
+	/*'\
 			<div class="field"> \n\
 				<label for="script_"></label> \n\
 				<input name="script[]" value="0" type="hidden"><input id="script_" name="script[]" value="1" type="checkbox"> \n\
@@ -1855,7 +1953,7 @@ function create_page_settings(){
 				 \n\
 			</div> \n\
 			<input type=\"button\" id=\"script_save_save\" class=\"element submit button\" value=\"Save\"/>                                                                                                                                                                    \n\
-	';
+	';*/
 	var tabContent = document.createElement("div");
 	tabContent.setAttribute('class','tab');
 	tabContent.setAttribute('id','tab_derpiscript');
