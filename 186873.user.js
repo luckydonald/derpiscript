@@ -1334,7 +1334,7 @@ function page_album_highlighter(jNode){
 }
 
 function create_search_addons(){
-
+	//TODO if enabled.
 	var form = $("div.searchbox form");
 	var buttons = {
 		faves:   {obj: null, input: null, name: "faves",   on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-star"></i>', tooltip:"Faves"},
@@ -1348,24 +1348,54 @@ function create_search_addons(){
 		div.searchbox form .addon_button{ \
 			color: " + buttonStyle.color + "; \
 			background-color: " + buttonStyle.backgroundColor + "; \
+			border-right: 1px solid #5673AB !important; \
 			font-size: 10px; \
 		} \
 		div.searchbox form .addon_button.on { \
 			color:#264827 !important; \
 			background-color:#57A559 !important; \
 		} \
+		div.searchbox form .addon_button.on:hover { \
+			color:#57A559 !important; \
+			background-color:#264827 !important; \
+		} \
 		div.searchbox form .addon_button.off { \
 			color:#482627 !important; \
 			background-color:#A55759 !important; \
+		} \
+		div.searchbox form .addon_button.off:hover { \
+			color:#A55759 !important; \
+			background-color:#482627 !important; \
 		} \
 		\
 	";
 	applyStyle(css, "search_addons");
 	$.each(buttons, function(unneeded, button) {
-		button.obj = form.children("input:submit").before('<a id="derpiscript_easysearch_button_' + button.name + '" class="addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>');
+		button.obj = $('<a id="derpiscript_easysearch_button_' + button.name + '" class="addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertBefore(form.children("input:submit"));
 		//button.obj = form.child('#derpiscript_easysearch_button_' + button.name);
-		button.input = form.append('<input type="hidden" name="' + button.name + '" value="' + button.undef + '">');
+		button.input =  $('<input type="hidden" name="' + button.name + '" value="' + button.undef + '">').appendTo(form);
 		form.append(button.input);
+		button.obj.data("tooltip",button.tooltip);
+		button.obj.attr("title", "Search " + button.tooltip + "?");
+		button.obj.click( function() {
+			var btn = $( this );
+			if (btn.hasClass("on")){ //was on
+				btn.toggleClass("on", false);
+				// is now off
+				btn.toggleClass("off", true);
+				btn.attr("title", "No " + btn.data("tooltip"));
+			} else if (btn.hasClass("off")){ //was off
+				btn.toggleClass("off", false);
+				// is now default
+				btn.attr("title", "Search " + btn.data("tooltip") + "?");
+
+			} else { //was default
+				btn.toggleClass("on", true);
+				// is now on
+				btn.attr("title", btn.data("tooltip") + " Only");
+			}
+			
+		});
 	});
 	
 }
