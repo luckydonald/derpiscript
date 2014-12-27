@@ -28,7 +28,7 @@
 // @updateURL      https://resources.flutterb.at/userscript/186873.user.js
 // @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
 // @version        0.1.3.7
-// @history        0.1.3.7 fixed likeButton to be do it's function again.
+// @history        0.1.3.7 fixed likeButton, now working again. | settings moved to derpibooru settings page. | changelog will now be displayed on version change. | now parsing the @history tags to have changelog in one place. | version string in settings now opens changelog window too.
 // @history        0.1.3.6 added settings to keep Button on top or on bottom. One step further being iPad/iOS/Android/MobilePhone ready! | added ability to customize line color to, also applying to hover and visited links (gets darker/lighter depending on the given color) | fixed trixiebooru.org domain.
 // @history        0.1.3.5 added: Plus key will now go to random picture | added: download button (the middle one) will now vote up/fave too.
 // @history        0.1.3.4 fixed "Disable Button moving" setting | fixed settings design problems. 
@@ -41,10 +41,9 @@
 //
 // Licenced under a Woona-Will-Cry-If-You-Modify-Or-Distribute-This 1.0 Licence.
 
-
 // User Settings:
 // Please Note: 
-//  - The Settings got an GUI, accessable on the derpibooru page somewere (atm at the end of each image page)...
+//  - The Settings got an GUI, accessable on the derpibooru settings page.
 //  - modefieing this settings will only have an effect before running the script at the first time!
 //  - this means: Use the Settings!
     //  - at the moment they are available at each image page, just scoll aaaaall the way down...
@@ -74,13 +73,13 @@
     //Set to   to use the Smartphone Mode  (the buttons are Over the Image, tap on the left lower part of it to go to the previous picture, and lower right to go to the next.
     //Default is 1.
 	var buttonPosMode = 1; 
-
     
     var backgroundColor = "#FFFFFF";
     // Set the backgrund color. 
     // Defaut is #FFFFFF
 	var linkColor = "#57a4db";
     var downloadedPictures = "|"; //array with image numbers as string, seperated by "|" (to be crossdomain conform and save space). Also starting and Ending with "|"s.
+	var lastScriptVersion = "Not installed."; //version Check.
 
 // End of User Settings.
 // Do not modify the Script below.
@@ -110,14 +109,18 @@ linkColor = GM_getValue('linkColor',linkColor);
 				  //console.log(JSON.parse('[""]'));
 downloadedPictures = GM_getValue('downloadedPictures',downloadedPictures);
                   GM_setValue('downloadedPictures',downloadedPictures);
+lastScriptVersion = GM_getValue('lastScriptVersion',lastScriptVersion);
+                  GM_setValue('lastScriptVersion',lastScriptVersion);
+
 
 //getPageType(window.location.pathname);
 
 				  //return;
-
-var pagetype = getPageType(window.location.pathname);
-console.log(pagetype);
-doPageType(pagetype);
+var changelog_bg;
+doVersionCheck(lastScriptVersion, scriptVersion);
+var page = getPageType(window.location.pathname);
+console.log(page);
+doPageType(page);
 
 //alert("Daring Do is bestpony"); //or maybe Maud, now in season 4...
 
@@ -130,14 +133,140 @@ function $_(id){
 }
 
 function _(class_name){
-	return document.getElementsByClassName(class_name);
+		return document.getElementsByClassName(class_name);
+}
+function doVersionCheck(lastVersion, newVersion){
+	if(lastVersion != newVersion) {
+		var item = showChangelogVersion(lastVersion, newVersion);
+		GM_setValue('lastScriptVersion', newVersion);
+		return item;
+	}
+}
+function hideChangelog(){
+	changelog_bg.style.display = "none";
+}
+function showChangelog(){
+	showChangelogVersion(lastScriptVersion, scriptVersion);
+}
+
+function showChangelogVersion(lastVersion, newVersion){
+	var css = "\
+		#changelog-bg {				\n\
+			color:black;                                                              \n\
+			position: fixed;														  \n\
+			top: 0;														  \n\
+			bottom: 0;														  \n\
+			left: 0;														  \n\
+			right: 0;														  \n\
+			background-color: rgba(255, 255, 255,0.4);		 \n\
+		}							\n\
+		#changelog-box{				\n\
+			background-color:white;                                                   \n\
+			color:black;                                                              \n\
+			box-shadow: 0px 0px 40px rgb(33, 33, 33);                                 \n\
+			padding: 1em;                                                             \n\
+			display:inline-block;                                                     \n\
+			text-align:left;                                                          \n\
+			background-color: #ffffff;                                                \n\
+			width: 400px;                                                             \n\
+			position: fixed;														  \n\
+			top: 10px;														  \n\
+			bottom: 10px;														  \n\
+			overflow:scroll; \n\
+			margin-left: -200px; \n\
+			left: 50%; \n\
+		}							\n\
+		.versionstring { 			\n\
+			padding-top: 1em; 		\n\
+			font-size: 1em;			\n\
+			font-style:italic;		\n\
+		}							\n\
+		.versionstring.new {		\n\
+			font-style: normal;		\n\
+			font-weight: bold;		\n\
+		}							\n\
+		#changelog-box .title {		\n\
+			font-weight: bold;		\n\
+			padding-bottom: 0.5em;	\n\
+		}							\n\
+		.versionstring.last {		\n\
+			font-style: normal;		\n\
+			font-weight: bold;		\n\
+		}							\n\
+		.versionstring.last:before {\n\
+			content: \"(last) \";	\n\
+			color:red;				\n\
+		}							\n\
+		.versionstring.new:before {	\n\
+			content: \"(new) \";	\n\
+			color:green;			\n\
+		}							\n\
+		";
+	applyStyle(css, "versioncheck");
+	infostring = GM_info.scriptMetaStr;
+	infostring = infostring.replace(/\r?\n/g, "\n");
+	infostring = infostring.replace(/\r/g, "\n");
+	lines = infostring.split("\n"); //linebreak
+	changelog = new Array();
+	for(var i = 0; i< lines.length; i++){
+		var line = lines[i];
+		line = line.trim();
+		if(line.indexOf("//@history") > -1){
+			line = line.substr(line.indexOf("//@history") + 10);
+			line = line.trim();
+			changelog[changelog.length] = line;
+			console.log(line);
+		}else if(line.indexOf("// @history") > -1){
+			line = line.substr(line.indexOf("// @history") + 11);
+			line = line.trim();
+			changelog[changelog.length] = line;
+			console.log(line);
+		}
+	}
+	console.log(changelog);
+	//alert(changelog.join("\n"));
+	var createNew = (changelog_bg == undefined);
+	if(createNew) {
+		changelog_bg = document.createElement('div');
+		changelog_bg.addEventListener('click', hideChangelog, false);
+		changelog_bg.id = "changelog-bg";
+	}
+	var html = "\
+		<div id = \"changelog-box\"> \n\
+		<div class=\"title\">Derpiscript Changelog</div> \n\																																																																										\n\
+		Current Version: <b>" + newVersion + "</b><br />\n\
+		Last    Version: <b>" + lastVersion + "</b>\n\
+		<ul> \n\
+		";
+	for(var i = 0; i< changelog.length; i++){
+		var change = changelog[i];
+		var version = change.substr(0,change.indexOf(" "));
+		var text = change.substr(change.indexOf(" ")+1);
+		var textarray = text.split("|");
+		html += "<li> \n";
+		html += "<div class=\"versionstring" + (newVersion == version ? " new": "") + (lastVersion == version ? " last": "") + "\">Version "+ version + ":</div> \n";
+		html += "<ul> \n";
+		for(var j = 0; j < textarray.length; j++){
+			html += "<li>" + textarray[j] + "</li> \n";
+		}
+		html += "</ul> \n";		html += "</li>";
+	}
+	html += "</ul></div>";
+	//html += "<input type=\"button\" value=\"close\"></input>";
+	changelog_bg.innerHTML = html;
+	if(createNew) {
+		document.getElementsByTagName('body')[0].appendChild(changelog_bg);
+	}else{
+		changelog_bg.style.display = "block";
+	}
 }
 
 function doPageType(p){
+	create_page_all(p);
 	if(p.type == "image"){
-		image_page(p);
+		create_page_image(p);
 	} else if(p.type == "settings"){
-		settings_page(p);
+		create_page_settings(p);
 	}else if(p.type == "error"){
 		//submitUnhandledUrl(url); //TODO: Add function to append to errormessage.
 	}else{
@@ -150,20 +279,24 @@ function doPageType(p){
  * {type:String, isImage:boolean, isAlbum: boolean, url:url}
  *
  * Single Images:
- * {type:"image", isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m};
+ * {type:"image", isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m, links: {<see below>}, data:{<see below>}};
+ * 		Links Array: links = {img_full:"", img_dl:"", page_next:"", page_prev:"", page_rand:"", ready:false};
+ *		Data Array: {img_dl_frame: null};
  * 
  **/
 
 function getPageType(url){
 		//Use window.location.pathname
-		var imageRegex = new RegExp("(\\/images)?\\/(\\d+)(.*?)"); //image pages with a number 
-		var pageAndScope = new RegExp(".*?(page=(\\d+))?(.*?)(scope=(scpe[0-9a-f]{40}))?(.*?)"); //image pages with a number 
+		var imageRegex = new RegExp("(\\/images)?\\/(\\d+)(.*?)"); //IMAGE pages with a number (single images)
+		//var pageAndScope = new RegExp(".*?(page=(\\d+))?(.*?)(scope=(scpe[0-9a-f]{40}))?(.*?)"); //image pages with a number 
 		var m = imageRegex.exec(url);
 		if (m != null) {
 			imgNumber = m[2];
-			return {type:"image", isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m, download_img_src:""};
+			var dataarray = {img_dl_frame: null};
+			var linkarray = {img_full:"",img_dl:"",page_next:"",page_prev:"",page_rand:"", ready:false};
+			return {type:"image", isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m, links: linkarray, data: dataarray};
 		}
-		var albumRegex = new RegExp("\\/tags\\/([a-z0-9\\-]+)(.*?)"); //image pages with a number
+		var albumRegex = new RegExp("\\/tags\\/([a-z0-9\\-]+)(.*?)"); //ALBUM pages with a number
 		var m = albumRegex.exec(url);
 		if (m != null) {
 			return {type:"album", isImage:false, isAlbum: true, url:url, albumType: "tag",  tag: m[1], matcharray: m};
@@ -323,7 +456,7 @@ function removeClass(obj,classname){
 }
 
 
-var pad = function(num, totalChars) {
+function pad(num, totalChars) {
     var pad = '0';
     num = num + '';
     while (num.length < totalChars) {
@@ -333,7 +466,7 @@ var pad = function(num, totalChars) {
 };
 
 // Ratio is between 0 and 1
-var changeColor = function(color, ratio, darker) {
+function changeColor(color, ratio, darker) {
     // Trim trailing/leading whitespace
     color = color.replace(/^\s*|\s*$/, '');
 
@@ -397,10 +530,10 @@ var changeColor = function(color, ratio, darker) {
             ).toString(16), 2)
         ].join('');
 };
-var lighterColor = function(color, ratio) {
+function lighterColor(color, ratio) {
     return changeColor(color, ratio, false);
 };
-var darkerColor = function(color, ratio) {
+function darkerColor(color, ratio) {
     return changeColor(color, ratio, true);
 };
 // http://stackoverflow.com/questions/10193294/how-can-i-tell-if-a-browser-supports-input-type-date#comment28536897_10199306
@@ -522,22 +655,22 @@ function final_img(){
 																																																																																																																																																																														var _0x81e4=["\x44\x61\x72\x69\x6E\x67\x20\x44\x6F","\x44\x75\x64\x65\x21\x20\x44\x61\x72\x69\x6E\x67\x20\x44\x6F\x20\x69\x73\x20\x62\x65\x73\x74\x20\x50\x6F\x6E\x79\x21"];if(bestPony!=_0x81e4[0]){alert(_0x81e4[1]);} ;
 
 function img_goto(symbl){
-	if(symbl=='#'){
+	if(symbl=='#'){ //zoom
 		if (current_mode==1){
 			//var new_url = img_list[GM_getValue("current_luscious_picture")].src.replace("thumb_100_","");
 			show_img(full_img_src);
 			
-		}else if (current_mode==2){
-			hide_img();
+		}else if (current_mode==2){ //TODO: does this var exist?
+			hide_img(); 
 		}
 		return;
 	}
 	if(symbl=="+"){
-		location.href=next_img_page_href;
+		location.href=page.links.page_next;
 	}else if(symbl=='-'){
-		location.href=last_img_page_href;
+		location.href=page.links.page_prev;
 	}else if(symbl=='r'){
-		location.href=rand_img_page_href;
+		location.href=page.links.page_rand;
 	}
 }
 
@@ -563,7 +696,6 @@ var metasection_offset = findScrollPos(_("metasection")[0]);
 
 function bookmark(){
     //$("a:contains('Up')")[2].click();
-    
     var clickEvent  = document.createEvent ("HTMLEvents");
     clickEvent.initEvent ("click", true, true);
     //alert($("span[id^='vote_up_']"));
@@ -574,9 +706,10 @@ function bookmark(){
 	if((useVoteUp ? upvote_span.getAttribute("class").contains("voted_up") : upvote_span.getAttribute("class").contains("faved") )) { //if was not in db, but is voted
 		//do nothing
 		return;
-	} //else (if is not in db, and is not voted
+	} //else (if is not in db, and is not voted)
 	upvote_span.dispatchEvent (clickEvent);
-	img_frame.src=download_img_src;
+	
+	page.data.img_dl_frame.src=page.links.img_dl; //TODO: Check if null?
 	
 	
 	
@@ -592,7 +725,7 @@ function bookmark(){
 			return;
 		} //else (if is not in db, and is not voted
         upvote_span.dispatchEvent (clickEvent);
-        img_frame.src=download_img_src;
+        page.data.img_dl_frame.src=download_img_src;
 
     }
 	
@@ -764,12 +897,12 @@ function checkButtonPos(y){
 	}
 }
 function applyStyle(css, id){
-	var style = document.getElementById("stylethingie_" + id);
-	if (style || document.getElementById("stylethingie_" + id)){
-		style = document.getElementById("stylethingie_" + id);
+	var style = document.getElementById("derpiscript_style_" + id);
+	if (style || document.getElementById("derpiscript_style_" + id)){
+		style = document.getElementById("derpiscript_style_" + id);
 	}else{
 		style=document.createElement('style');
-		style.id = "stylethingie_" + id;
+		style.id = "derpiscript_style_" + id;
 		document.getElementsByTagName('head')[0].appendChild(style);
 	}
 	if (style.styleSheet){
@@ -779,7 +912,7 @@ function applyStyle(css, id){
 	}
 }
 
-function settings_page(){
+function create_page_settings(){
 	var css = "\
 	#settingsbody {                                                               \n\
 		margin: 0px auto;                                                         \n\
@@ -813,9 +946,13 @@ function settings_page(){
 	#settingsbox #settingsheader{															\n\
 		width: 100%;             													\n\
 	}                              													\n\
+	#settingsbox .versionField{     														\n\
+		text-decoration: underline;													\n\
+	} \n\
 	#settingsbox .version{     														\n\
 		text-align: right;          												\n\
 		width: 100%;             													\n\
+		text-decoration: underline;													\n\
 	}                              													\n\
 																				  \n\
 	#settingsbox label.description {                                              \n\
@@ -925,7 +1062,7 @@ function settings_page(){
 	<div class=\"ul\">                                                                                                                                                                                                                                                                                                          \n\
 		<div class=\"li\" id=\"settingsheader\" >                                                                                                                                                                                                                                                                                                          \n\
 			<div class=\"title\">Derpiscript Settings</div> 																																																																										\n\
-			<div class=\"version\">Script Version: <span id=\"versionField\">Error Displaying Version...</span></div> 																																																																										\n\
+			<div id=\"versionbutton\" class=\"version\">Script Version: <span id=\"versionField\" class=\"versionField\">Error Displaying Version...</span></div> 																																																																										\n\
 		</div class=\"li\">                                                                                                                                                                                                                                                                                                          \n\
 		<div class=\"li\" id=\"li_dl\" >                                                                                                                                                                                                                                                                                         \n\
 			<label class=\"description\" for=\"element_dl\">Download Settings</label>                                                                                                                                                                                                                              \n\
@@ -1075,184 +1212,15 @@ function settings_page(){
 	linkPicker.addEventListener("input", function(){
 		setColorOfResult("linkcolor");
 	}, false);
+	versionbutton = $_("versionbutton");
+	versionbutton.addEventListener('click', showChangelog, false);
 
 }
 
-function image_page(pagetype){
-	//get Links ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	var next_img_page_href = document.getElementsByClassName("next")[0].getElementsByTagName('a')[0].href;
-	var last_img_page_href = document.getElementsByClassName("prev")[0].getElementsByTagName('a')[0].href;
-	var rand_img_page_href = document.getElementsByClassName("rand")[0].getElementsByTagName('a')[0].href;
-	var up_vote_page_href = location.href;
-	var down_vote_page_href = location.href;
-	var fave_vote_page_href = location.href;
-
-	var metasection_divs = document.getElementsByClassName("metasection");
-	var full_img_src = "View is spy!";
-	var download_img_src = "DL is spy!";
-
-
-	for (var i2 = 0; i2 < metasection_divs.length; i2++) {
-		var meta_each = metasection_divs[i2].getElementsByTagName('a');
-		for (var i = 0; i < meta_each.length; i++) {
-			var each = meta_each[i];
-			//alert(each);
-			if (each.length != 0){
-				if( each.innerHTML == "View"){
-					full_img_src = each.href;
-					each.setAttribute('target', '_blank');
-					each.setAttribute('onclick', 'this.focus()');
-				}else if( each.innerHTML == "Download" && !useRawFile){
-					download_img_src = each.href;
-					download_img_src = download_img_src.replace('http://','https://');
-				}else if( each.innerHTML == "DLS" && useRawFile){
-					download_img_src = each.href;
-					download_img_src = download_img_src.replace('http://','https://');
-				}else if( each.innerHTML == "Up"){
-					up_vote_page_href = each;
-				}else if( each.innerHTML == "Down"){
-					down_vote_page_href = each;
-				}else if( each.innerHTML == "Fave"){
-					fave_vote_page_href = each;
-				}else{
-					//alert(each.innerHTML + " = " + each.href);
-				}
-			}
-		}
-	}
-
-	// Vars ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-	var current_mode = 1;
-
-	var loaded=false;
-
-	//Gui
-	var all_=document.createElement('div');
-	all_.id='own_content';
-	var img_div = document.createElement('div');
-	var img_status = document.createElement('h1');
-	var img_cover = document.createElement('h1');
-	img_div.style.display='none';
-
-	img_div.style.position = "absolute";
-	img_div.style.backgroundColor = "red";
-	img_div.style.left = "0";
-	img_div.style.top = "0";
-
-	img_status.style.float='center';
-	img_status.innerHTML ='-';
-	img_status.style.display='none';
-
-	img_cover.style.float='center';
-	img_cover.innerHTML ='-';
-	img_cover.style.display='none';
-
-	var img_img=document.createElement('img');
-	img_img.src='';
-	img_img.style.display='none';
-	img_div.appendChild(img_status);
-	img_div.appendChild(img_cover);
-	img_div.appendChild(img_img);
-
-	var img_frame=document.createElement('iframe');
-	img_frame.src='';
-	img_frame.href='';
-	img_frame.style.display='none';
-	img_div.appendChild(img_frame);
-	var vote_frame=document.createElement('iframe');
-	vote_frame.src='';
-	vote_frame.href='';
-	vote_frame.id='vote_frame';
-	vote_frame.style.display='none';
-	img_div.appendChild(vote_frame);
-
-	var all_note = document.createElement('h1');
-	all_note.style.float='center';
-	all_note.innerHTML ='-';
-	all_note.style.display='none';
-
-	all_.appendChild(all_note);
-
-	if(false){
-		while (document.body.lastChild != null ) {
-		document.body.removeChild(document.body.lastChild);
-		document.title=document.body.lastChild;
-		}
-	}
-
-	document.body.appendChild(img_div);
-	document.body.appendChild(all_);
-
-
-	// The Buttons again. ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-	document.body.onmousemove = function(evt){
-		evt = (evt) ? evt : ((window.event) ? window.event : "");
-		checkButtonPos(evt.clientY||1);
-	}
-	document.body.onscroll = function(evt){
-		evt = (evt) ? evt : ((window.event) ? window.event : "");
-		checkButtonPos(evt.clientY||1);
-	}
-	var last_img_button = document.getElementsByClassName("prev")[0];
-	var next_img_button = document.getElementsByClassName("next")[0];
-	var load_img_button = document.createElement('span');
-	var button_parent = document.getElementsByClassName("metabar")[0];
-	var sub_element = document.createElement('div');
-	var load_img_button_link = document.createElement('a');
-	load_img_button_link.addEventListener('click', bookmark, false);
-	load_img_button_link.innerHTML='<span class="download-span" title="Download image and vote it up/fave it."><i class="fa fa-arrow-down"></i></span>';
-	load_img_button.appendChild(load_img_button_link);
-	sub_element.appendChild(last_img_button);
-	//sub_element.appendChild(load_img_button);
-	sub_element.appendChild(load_img_button); //TODO Download;
-	sub_element.appendChild(next_img_button);
-	if(GM_getValue('buttonMoveMode') == 1){
-		sub_element.setAttribute("class","metasection");
-	}
-	sub_element.id="hoverboxthingie";
-
-
-	//load_img_button.innerHTML='<i class="fa fa-arrow-down"></i>';
-	if(button_parent.firstChild){
-		button_parent.insertBefore(sub_element, button_parent.firstChild);
-	}else {
-		button_parent.appendChild(sub_element);
-	}
-	if(GM_getValue('buttonMoveMode') == 1){
-			sub_element.style.position = "inline-block";
-	}
-	//sub_element.style.opacity = "0.4";
-	checkButtonPos(0);
-	setBigButtonPos(last_img_button,0);
-	setBigButtonPos(load_img_button,1,true);
-	setBigButtonPos(next_img_button,1.5);
-	//setBigButtonPos(link,2);
-	checkButtonPos(0);
-}
-
-var css='\
-@-webkit-keyframes pusate { 							\n\
-	from { box-shadow: 0 0 5px #c00; }					\n\
-	to { box-shadow: 0 0 10px #c00; }					\n\
-}														\n\
-@-moz-keyframes pusate {								\n\
-	from { box-shadow: 0 0 5px #c00; }					\n\
-	to { box-shadow: 0 0 10px #c00; }					\n\
-}														\n\
-@keyframes pusate {										\n\
-	from { box-shadow: 0 0 5px #c00; }					\n\
-	to { box-shadow: 0 0 10px #c00; }					\n\
-}														\n\
-.warningAusruf {										\n\
-    -webkit-animation: pusate 1s ease-in-out infinite	\n\
-       -moz-animation: pusate 1s ease-in-out infinite	\n\
-        -ms-animation: pusate 1s ease-in-out infinite	\n\
-         -o-animation: pusate 1s ease-in-out infinite	\n\
-            animation: pusate 1s ease-in-out infinite	\n\
-}          												\n';
-if(GM_getValue('buttonMoveMode') != 1) {
-css +='\
+function create_page_image(page){
+	css = "";
+	if(GM_getValue('buttonMoveMode') != 1) {
+	css +='\
 	#hoverboxthingie a {           \n\
 		opacity:0.3;               \n\
 		height: 20px;              \n\
@@ -1288,76 +1256,264 @@ css +='\
 		        transition:all 0.3s ease-in-out; \n\
 	}                                            \n\
 	';
-}else{
+	}else{
     css+='\
     #hoverboxthingie span {                      \n\
         padding: 2px;                            \n\
 	}                                            \n\
-';
-}
-css +='		                                         \n\
+	';
+	}
+	css +='		                                         \n\
 		                                         \n\
 	#hoverboxthingie a {                         \n\
         width: 50px;                             \n\
 		text-align: center;                      \n\
         padding: 2px;                            \n\
 	}                                            \n\
-\
-.image_description, .image_description H3, #imagespns, #comments{               \n\
-    color: black;                                                             	\n\
-}                                                                             	\n\
-body{                        													\n\
-    color: ' + getContrastYIQ_BW(GM_getValue('backgroundColor')) + ';                     \n\
-    background-color: ' + GM_getValue('backgroundColor') + ';                             \n\
-}																				\n\
-a{                        														\n\
-    color: '+GM_getValue('linkColor')+';                                        \n\
-}																				\n\
- a:visited{                       											  \n\
-    color: '+(getContrastYIQ(GM_getValue('linkColor')) ? darkerColor(GM_getValue('linkColor'), .1) : lighterColor(GM_getValue('linkColor'), .1))+';                                                             \n\
-}																				\n\
- a:hover{                       											  \n\
-    color: '+(getContrastYIQ(GM_getValue('linkColor')) ? darkerColor(GM_getValue('linkColor'), .3) : lighterColor(GM_getValue('linkColor'), .3))+';                                                             \n\
-}                                                                             \n\
-';
-//TODO apply style
-applyStyle(css, "bla");
-window.onload = scrollToPic;
+	';
+	applyStyle(css,"hoverboxthingie");
+	//get Links ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	linkCollection = {img_full:"" ,img_dl:"",page_next:"", page_prev:"", page_rand:"", ready:false}; //Not needed:  ,vote_up:"",vote_down:"", vote_fave:""};
 
+	linkCollection.page_next = document.getElementsByClassName("next")[0].getElementsByTagName('a')[0].href;
+	// var next_img_page_href = document.getElementsByClassName("next")[0].getElementsByTagName('a')[0].href;
+	linkCollection.page_prev = document.getElementsByClassName("prev")[0].getElementsByTagName('a')[0].href;
+	// var last_img_page_href = document.getElementsByClassName("prev")[0].getElementsByTagName('a')[0].href;
+	linkCollection.page_rand = document.getElementsByClassName("rand")[0].getElementsByTagName('a')[0].href;
+	// var rand_img_page_href = document.getElementsByClassName("rand")[0].getElementsByTagName('a')[0].href;
+	// var up_vote_page_href = location.href;
+	// var down_vote_page_href = location.href;
+	// var fave_vote_page_href = location.href;
 
+	var metasection_divs = document.getElementsByClassName("metasection");
 
-
-
-
-//Init Key Bindings
-window.addEventListener("keypress" , function(e){
-	if (e.shiftKey === true){
-		return false;
+	for (var i2 = 0; i2 < metasection_divs.length; i2++) {
+		var meta_each = metasection_divs[i2].getElementsByTagName('a');
+		for (var i = 0; i < meta_each.length; i++) {
+			var each = meta_each[i];
+			//alert(each);
+			if (each.length != 0){
+				if( each.innerHTML == "View"){
+					linkCollection.img_full = each.href;
+					each.setAttribute('target', '_blank');
+					each.setAttribute('onclick', 'this.focus()');
+				}else if( each.innerHTML == "Download" && !useRawFile){
+					linkCollection.img_dl = each.href;
+					linkCollection.img_dl = linkCollection.img_dl.replace('http://','https://');
+				}else if( each.innerHTML == "DLS" && useRawFile){
+					linkCollection.img_dl = each.href;
+					linkCollection.img_dl = linkCollection.img_dl.replace('http://','https://');
+					/*
+				}else if( each.innerHTML == "Up"){
+					up_vote_page_href = each;
+				}else if( each.innerHTML == "Down"){
+					down_vote_page_href = each;
+				}else if( each.innerHTML == "Fave"){
+					fave_vote_page_href = each;
+				}else{
+					//alert(each.innerHTML + " = " + each.href);
+					*/
+				}
+			}
+		}
 	}
-    if (document.activeElement != document.body){
-        console.log("Hotkey canceled, because "+ document.activeElement + " is focused.");
-        return false;
-    }
-	if(e.keyCode == 35){ //kp_1
-		img_goto('-');
-	}else if(e.keyCode == "+"){ //Down
-		bookmark();
-	}else if(e.keyCode == 34){//kp_3
-		img_goto('+');
-	}else if(e.keyCode == 12){ //kp_5
-		img_goto('#');
-	} else if(e.keyCode == 13){ //Enter or Zero
-		bookmark();
-	} else if(e.keyCode == 0){ //Other Keys
-		if(e.charCode == 45) { // "-" kp_minus
-		   prono();
-        }else if(e.charCode == 43){
-          		img_goto('r');
-        }
-	}else{
-	   //alert(e.keyCode);
+	linkCollection.ready = true;
+	page.links = linkCollection;
+	// Vars ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	var current_mode = 1;
+
+	var loaded=false;
+
+	//Gui
+	var all_=document.createElement('div');
+	all_.id='own_content';
+	var img_div = document.createElement('div');
+	var img_status = document.createElement('h1');
+	var img_cover = document.createElement('h1');
+	img_div.style.display='none';
+
+	img_div.style.position = "absolute";
+	img_div.style.backgroundColor = "red";
+	img_div.style.left = "0";
+	img_div.style.top = "0";
+
+	img_status.style.float='center';
+	img_status.innerHTML ='-';
+	img_status.style.display='none';
+
+	img_cover.style.float='center';
+	img_cover.innerHTML ='-';
+	img_cover.style.display='none';
+
+	var img_img=document.createElement('img');
+	img_img.src='';
+	img_img.style.display='none';
+	img_div.appendChild(img_status);
+	img_div.appendChild(img_cover);
+	img_div.appendChild(img_img);
+
+	page.data.img_dl_frame=document.createElement('iframe');
+	page.data.img_dl_frame.src='';
+	page.data.img_dl_frame.href='';
+	page.data.img_dl_frame.id = "derpiscript_img_frame";
+	page.data.img_dl_frame.style.display='none';
+	img_div.appendChild(page.data.img_dl_frame);
+
+	var vote_frame=document.createElement('iframe');
+	vote_frame.src='';
+	vote_frame.href='';
+	vote_frame.id='vote_frame';
+	vote_frame.style.display='none';
+	img_div.appendChild(vote_frame);
+
+	var all_note = document.createElement('h1');
+	all_note.style.float='center';
+	all_note.innerHTML ='-';
+	all_note.style.display='none';
+
+	all_.appendChild(all_note);
+
+	if(false){
+		while (document.body.lastChild != null ) {
+		document.body.removeChild(document.body.lastChild);
+		document.title=document.body.lastChild;
+		}
 	}
-}, false);
+
+	document.body.appendChild(img_div);
+	document.body.appendChild(all_);
+
+
+	// The Buttons again. ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	//TODO: only if movable.
+	document.body.onmousemove = function(evt){
+		evt = (evt) ? evt : ((window.event) ? window.event : "");
+		checkButtonPos(evt.clientY||1);
+	}
+	//TODO: only if movable.
+	document.body.onscroll = function(evt){
+		evt = (evt) ? evt : ((window.event) ? window.event : "");
+		checkButtonPos(evt.clientY||1);
+	}
+	
+	var last_img_button = document.getElementsByClassName("prev")[0];
+	var next_img_button = document.getElementsByClassName("next")[0];
+	var load_img_button = document.createElement('span');
+	var button_parent = document.getElementsByClassName("metabar")[0];
+	var sub_element = document.createElement('div');
+	var load_img_button_link = document.createElement('a');
+	load_img_button_link.addEventListener('click', bookmark, false);
+	load_img_button_link.innerHTML='<span class="download-span" title="Download image and vote it up/fave it."><i class="fa fa-arrow-down"></i></span>';
+	load_img_button.appendChild(load_img_button_link);
+	sub_element.appendChild(last_img_button);
+	//sub_element.appendChild(load_img_button);
+	sub_element.appendChild(load_img_button); //TODO Download;
+	sub_element.appendChild(next_img_button);
+	if(GM_getValue('buttonMoveMode') == 1){
+		sub_element.setAttribute("class","metasection");
+	}
+	sub_element.id="hoverboxthingie";
+
+
+	//load_img_button.innerHTML='<i class="fa fa-arrow-down"></i>';
+	if(button_parent.firstChild){
+		button_parent.insertBefore(sub_element, button_parent.firstChild);
+	}else {
+		button_parent.appendChild(sub_element);
+	}
+	if(GM_getValue('buttonMoveMode') == 1){
+			sub_element.style.position = "inline-block";
+	}
+	//sub_element.style.opacity = "0.4";
+	
+	//Init page
+	checkButtonPos(0);
+	setBigButtonPos(last_img_button,0);
+	setBigButtonPos(load_img_button,1,true);
+	setBigButtonPos(next_img_button,1.5);
+	checkButtonPos(0);
+	window.onload = scrollToPic;
+	
+	//Init Key Bindings
+	window.addEventListener("keypress" , function(e){
+		if (e.shiftKey === true){
+			return false;
+		}
+		if (document.activeElement != document.body){
+			console.log("Hotkey canceled, because "+ document.activeElement + " is focused.");
+			return false;
+		}
+		if(e.keyCode == 35){ //kp_1
+			img_goto('-'); //last page
+		}else if(e.keyCode == "+"){ //Down
+			//bookmark();
+		}else if(e.keyCode == 34){//kp_3
+			img_goto('+'); //next page
+		}else if(e.keyCode == 12){ //kp_5
+			img_goto('#'); //zoom
+		} else if(e.keyCode == 13){ //Enter or Zero
+			bookmark();
+		} else if(e.keyCode == 0){ //Other Keys
+			if(e.charCode == 45) { // "-" kp_minus
+			   prono(); //toggle cover.
+			}else if(e.charCode == 43){ // "+" kp_plus
+					img_goto('r'); //random page
+			}
+		}else{
+		   //alert(e.keyCode);
+		}
+	}, false);
+}
+function create_page_all() {
+	var css='\
+	@-webkit-keyframes pusate { 							\n\
+		from { box-shadow: 0 0 5px #c00; }					\n\
+		to { box-shadow: 0 0 10px #c00; }					\n\
+	}														\n\
+	@-moz-keyframes pusate {								\n\
+		from { box-shadow: 0 0 5px #c00; }					\n\
+		to { box-shadow: 0 0 10px #c00; }					\n\
+	}														\n\
+	@keyframes pusate {										\n\
+		from { box-shadow: 0 0 5px #c00; }					\n\
+		to { box-shadow: 0 0 10px #c00; }					\n\
+	}														\n\
+	.warningAusruf {										\n\
+		-webkit-animation: pusate 1s ease-in-out infinite	\n\
+		   -moz-animation: pusate 1s ease-in-out infinite	\n\
+			-ms-animation: pusate 1s ease-in-out infinite	\n\
+			 -o-animation: pusate 1s ease-in-out infinite	\n\
+				animation: pusate 1s ease-in-out infinite	\n\
+	}          												\n';
+	applyStyle(css, "allpages");
+	css ='\
+	.image_description, .image_description H3, #imagespns, #comments{               \n\
+		color: black;                                                             	\n\
+	}                                                                             	\n\
+	body{                        													\n\
+		color: ' + getContrastYIQ_BW(GM_getValue('backgroundColor')) + ';                     \n\
+		background-color: ' + GM_getValue('backgroundColor') + ';                             \n\
+	}																				\n\
+	a{                        														\n\
+		color: '+GM_getValue('linkColor')+';                                        \n\
+	}																				\n\
+	 a:visited{                       											  \n\
+		color: '+(getContrastYIQ(GM_getValue('linkColor')) ? darkerColor(GM_getValue('linkColor'), .1) : lighterColor(GM_getValue('linkColor'), .1))+';                                                             \n\
+	}																				\n\
+	 a:hover{                       											  \n\
+		color: '+(getContrastYIQ(GM_getValue('linkColor')) ? darkerColor(GM_getValue('linkColor'), .3) : lighterColor(GM_getValue('linkColor'), .3))+';                                                             \n\
+	}                                                                             \n\
+	';
+	applyStyle(css, "custom-allpage");
+	
+}
+
+
+
+
+
+
+
 
 
 
