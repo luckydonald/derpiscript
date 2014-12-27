@@ -24,12 +24,13 @@
 // @grant          GM_getValue
 // @grant          GM_setValue
 // @grant          GM_listValues
+// @grant          GM_openInTab
 // @grant          GM_xmlhttpRequest
-// @require        http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.js
+// @require        http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.js
 // @updateURL      https://resources.flutterb.at/userscript/186873.user.js
 // @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
 // @version        0.1.3.9
-// @history        0.1.3.9 notification, if new update is available.
+// @history        0.1.3.9 notification, if new update is available. | updated jquery from  1.2.6 to 1.11.1 (wow) | changelog now use state-of-the-art css! | added feedback if forced version check has no new version.
 // @history        0.1.3.8 setting now attached to normal derpibooru settings tabs. Click "Derpiscript" tab to access the settings. | added different tag coloring for watched, spoilered and hidden tags. | added rudimentary error display when script Version detections randomly dies. Error seems to be a Greasemonkey related bug. (Error: Greasemonkey access violation: unsafeWindow cannot call GM_*).
 // @history        0.1.3.7 fixed likeButton, now working again. | settings moved to derpibooru settings page. | changelog will now be displayed on version change. | now parsing the @history tags to have changelog in one place. | clicking on version string in settings now opens changelog window too.
 // @history        0.1.3.6 added settings to keep Button on top or on bottom. One step further being iPad/iOS/Android/MobilePhone ready! | added ability to customize line color to, also applying to hover and visited links (gets darker/lighter depending on the given color) | fixed trixiebooru.org domain.
@@ -127,90 +128,104 @@ doVersionCheck(lastScriptVersion, scriptVersion);
 var page = getPageType(window.location.pathname);
 console.log(page);
 doPageType(page);
-checkAutoUpdate();
+checkAutoUpdate(false);
 
 
 
 
 
-function checkAutoUpdate(){
-	infostring = GM_info.scriptMetaStr;
-	infostring = infostring.replace(/\r?\n/g, "\n");
-	infostring = infostring.replace(/\r/g, "\n");
-	lines = infostring.split("\n"); //linebreak
-	var updateURL = "";
-	for(var i = 0; i< lines.length; i++){
-		var line = lines[i];
-		line = line.trim();
-		if(line.indexOf("//") > -1){
-			line = line.substr(line.indexOf("//") + 2);
-			line = line.trim();
-			if(line.indexOf("@updateURL") > -1){
-				line = line.substr(line.indexOf("@updateURL") + 10);
-				line = line.trim();
-				updateURL = line;
-				console.log("old@updateURL:" + line);
-			}
-		}
-	}
-	updateURL = "https://resources.flutterb.at/userscript/186873.1.3.7.user.js";
-	GM_xmlhttpRequest({
-	method:"GET",
-	url:updateURL,
-	onload:function(details) {
-		if (details.status == 200) {
-			console.log("old@version:" + GM_info.script.version);
-			var metaBlock = new Array();
-			var infostring = details.responseText;
-			var newestVersion = "";
-			var newestUpdateURL = "";
-			var metaBlockStarted = false;
+function checkAutoUpdate(force){
+	var updateInterval = GM_getValue('updates_intervall', 60*60*24); // in seconds. //Minute*Hour*Day = 1 Day 
+	var checkForUpdates = GM_getValue('updates_do', true);
+    if (force || checkForUpdates == true) {
+		var lastCheck = GM_getValue('updates_last', 0);
+		var d = new Date();
+		var currentTime = Math.round(d.getTime() / 1000); // Unix time in seconds 
+   
+		if (force || currentTime >= lastCheck + updateInterval) {
+			
+			
+			infostring = GM_info.scriptMetaStr;
 			infostring = infostring.replace(/\r?\n/g, "\n");
 			infostring = infostring.replace(/\r/g, "\n");
 			lines = infostring.split("\n"); //linebreak
+			var updateURL = "";
 			for(var i = 0; i< lines.length; i++){
 				var line = lines[i];
 				line = line.trim();
 				if(line.indexOf("//") > -1){
 					line = line.substr(line.indexOf("//") + 2);
 					line = line.trim();
-					if(line.indexOf("==UserScript==") > -1){
-						metaBlockStarted = true;
-						continue;
-					}
-					if(line.indexOf("==/UserScript==") > -1){
-						break;
-					}
-					if(!metaBlockStarted) {
-						continue;
-					}
 					if(line.indexOf("@updateURL") > -1){
 						line = line.substr(line.indexOf("@updateURL") + 10);
 						line = line.trim();
-						newestUpdateURL = line;
-						console.log("new@updateURL:" + line);
+						updateURL = line;
+						console.log("old@updateURL:" + line);
 					}
-					if(line.indexOf("@version") > -1){
-						line = line.substr(line.indexOf("@version") + 8);
-						line = line.trim();
-						newestVersion = line;
-						console.log("new@version:" + line);
-					}
-					metaBlock[metaBlock.length] = lines[i];
 				}
 			}
-			applyUpdate(metaBlock, newestVersion, newestUpdateURL);
+			GM_xmlhttpRequest({
+			method:"GET",
+			url:updateURL,
+			onload:function(details) {
+				if (details.status == 200) {
+					console.log("old@version:" + GM_info.script.version);
+					var metaBlock = new Array();
+					var infostring = details.responseText;
+					var newestVersion = "";
+					var newestUpdateURL = "";
+					var metaBlockStarted = false;
+					infostring = infostring.replace(/\r?\n/g, "\n");
+					infostring = infostring.replace(/\r/g, "\n");
+					lines = infostring.split("\n"); //linebreak
+					for(var i = 0; i< lines.length; i++){
+						var line = lines[i];
+						line = line.trim();
+						if(line.indexOf("//") > -1){
+							line = line.substr(line.indexOf("//") + 2);
+							line = line.trim();
+							if(line.indexOf("==UserScript==") > -1){
+								metaBlockStarted = true;
+								continue;
+							}
+							if(line.indexOf("==/UserScript==") > -1){
+								break;
+							}
+							if(!metaBlockStarted) {
+								continue;
+							}
+							if(line.indexOf("@updateURL") > -1){
+								line = line.substr(line.indexOf("@updateURL") + 10);
+								line = line.trim();
+								newestUpdateURL = line;
+								console.log("new@updateURL:" + line);
+							}
+							if(line.indexOf("@version") > -1){
+								line = line.substr(line.indexOf("@version") + 8);
+								line = line.trim();
+								newestVersion = line;
+								console.log("new@version:" + line);
+							}
+							metaBlock[metaBlock.length] = lines[i];
+						}
+					}
+					applyUpdate(metaBlock, newestVersion, newestUpdateURL, force); //TODO: force in url with #forced ? 
+				}
+			}
+			});
+			GM_setValue('updates_last', currentTime);
 		}
 	}
-	});
-	
 }
 
-function applyUpdate(metaBlock, newestVersion, newestUpdateURL){
+function applyUpdate(metaBlock, newestVersion, newestUpdateURL, forcedUpdate){
 	console.log({meta: metaBlock, newest: newestVersion, url:newestUpdateURL});
 	var diff = versionCompare(scriptVersion, newestVersion, null);
-	if(diff != NaN && diff>0){ //FIXME
-		showChangelogVersion(scriptVersion, newestVersion, metaBlock.join("\n"), newestUpdateURL, true);
+	if(forcedUpdate){
+		showChangelogVersion(scriptVersion, newestVersion, metaBlock.join("\n"), newestUpdateURL, true, true);
+	}
+	if(diff != NaN && diff<0 && newestVersion != GM_getValue('updates_ignoreVersionNumber', "Version 0.404.n.o.t.f.o.u.n.d")) {
+			showChangelogVersion(scriptVersion, newestVersion, metaBlock.join("\n"), newestUpdateURL, true, 1);
 	}
 }
 
@@ -246,28 +261,27 @@ function doVersionCheck(lastVersion, newVersion){
 		return null;
 	}
 	if(lastVersion != newVersion) {
-		var item = showChangelogVersion(lastVersion, newVersion, GM_info.scriptMetaStr, "", false);
+		var item = showChangelogVersion(lastVersion, newVersion, GM_info.scriptMetaStr, "", false, -1);
 		GM_setValue('lastScriptVersion', newVersion);
 		return item;
-	}
-}
-function hideChangelog(){
-	changelog_bg.style.display = "none";
+	}else{}
 }
 function showChangelog(){
-	showChangelogVersion(lastScriptVersion, scriptVersion, GM_info.scriptMetaStr, "", false);
+	showChangelogVersion(lastScriptVersion, scriptVersion, GM_info.scriptMetaStr, "", false, -1);
 }
 
-function showChangelogVersion(lastVersion, newVersion, infostring, updateURL, isUpdate) {
+function showChangelogVersion(lastVersion, newVersion, infostring, updateURL, isUpdate, updateDiff) {
 	var css = "\
-		#changelog-bg {																  \n\
+		#changelog-overlay {															\
+			z-index: 2;																  	\
+		} \
+		#changelog-bg {																  	\
 			color:black;                                                              \n\
 			position: fixed;														  \n\
 			top: 0;																	  \n\
 			bottom: 0;																  \n\
 			left: 0;																  \n\
 			right: 0;																  \n\
-			z-index: 2;																  \n\
 			background-color: rgba(255, 255, 255,0.4);								  \n\
 		}					 														  \n\
 		#changelog-box{ 															  \n\
@@ -275,55 +289,64 @@ function showChangelogVersion(lastVersion, newVersion, infostring, updateURL, is
 			color:black;                                                              \n\
 			box-shadow: 0px 0px 40px rgb(33, 33, 33);                                 \n\
 			padding: 1em;                                                             \n\
-			display:inline-block;                                                     \n\
 			text-align:left;                                                          \n\
 			background-color: #ffffff;                                                \n\
 			width: 400px;                                                             \n\
-			position: fixed;														  \n\
-			top: 10px;														 		  \n\
-			bottom: 10px;														 	  \n\
 			margin-left: -200px; 													  \n\
 			left: 50%;																  \n\
-			overflow:auto; 															  \n\
-		} 																			  \n\
-		.versionstring { 				\n\
-			padding-top: 1em; 			\n\
-			font-size: 1em;				\n\
-			font-style:italic;			\n\
-		}								\n\
-		.versionstring.new {			\n\
-			font-style: normal;			\n\
-			font-weight: bold;			\n\
-		}								\n\
-		#changelog-box .title {			\n\
-			font-weight: bold;			\n\
-			padding-bottom: 0.5em;		\n\
-		}								\n\
-		.versionstring.last {			\n\
-			font-style: normal;			\n\
-			font-weight: bold;			\n\
-		}								\n\
-		.versionstring.last:before {	\n\
-			content: \"(last) \";		\n\
-			color:red;					\n\
-		}								\n\
-		.versionstring.new:before {		\n\
-			content: \"(new) \";		\n\
-			color:green;				\n\
-		}								\n\
-		.versionstring.last.new:before{	\n\
-			content: \"(current) \";	\n\
-			color:green;				\n\
-		}								\n\
-		#changelog-box .old {			\n\
-			color:grey;					\n\
-		}								\n\
+			overflow: auto;							\
+			position: absolute;						\
+			max-height: 80%;						\
+			left: 50%;								\
+			margin-left: -175px;					\
+			top: 50%;								\
+			-webkit-transform: translateY(-50%);	\
+			transform: translateY(-50%);			\
+		} 											\
+		.versionstring { 				\
+			padding-top: 1em; 			\
+			font-size: 1em;				\
+			font-style:italic;			\
+		}								\
+		.versionstring.new {			\
+			font-style: normal;			\
+			font-weight: bold;			\
+		}								\
+		#changelog-box .title {			\
+			font-weight: bold;			\
+			padding-bottom: 0.5em;		\
+		}								\
+		#changelog-box input {	\
+			margin-bottom: 0.5em;		\
+			margin-top: 0.5em;			\
+			font-family:unset;			\
+		}								\
+		.versionstring.last {			\
+			font-style: normal;			\
+			font-weight: bold;			\
+		}								\
+		.versionstring.last:before {	\
+			content: \"(last) \";		\
+			color:red;					\
+		}								\
+		.versionstring.new:before {		\
+			content: \"(new) \";		\
+			color:green;				\
+		}								\
+		.versionstring.last.new:before{	\
+			content: \"(current) \";	\
+			color:green;				\
+		}								\
+		#changelog-box .old {			\
+			color:grey;					\
+		}								\
 		";
 	applyStyle(css, "changelog");
+	var isNothingNew = updateDiff >= 0;
 	infostring = infostring.replace(/\r?\n/g, "\n");
 	infostring = infostring.replace(/\r/g, "\n");
-	lines = infostring.split("\n"); //linebreak
-	changelog = new Array();
+	var lines = infostring.split("\n"); //linebreak
+	var changelog = new Array();
 	for(var i = 0; i< lines.length; i++){
 		var line = lines[i];
 		line = line.trim();
@@ -331,70 +354,104 @@ function showChangelogVersion(lastVersion, newVersion, infostring, updateURL, is
 			line = line.substr(line.indexOf("//@history") + 10);
 			line = line.trim();
 			changelog[changelog.length] = line;
-			console.log(line);
 		}else if(line.indexOf("// @history") > -1){
 			line = line.substr(line.indexOf("// @history") + 11);
 			line = line.trim();
 			changelog[changelog.length] = line;
-			console.log(line);
 		}
 	}
-	console.log(changelog);
 	//alert(changelog.join("\n"));
-	var createNew = (changelog_bg == undefined);
+	var changelog_overlay = $("#changelog-overlay");
+	var createNew = !(changelog_overlay.length > 0);
 	if(createNew) {
-		changelog_bg = document.createElement('div');
-		changelog_bg.addEventListener('click', hideChangelog, false);
-		changelog_bg.id = "changelog-bg";
+		changelog_overlay = $("body").append("<div id = \"changelog-overlay\"></div>");
+		changelog_overlay = $("#changelog-overlay");
+		changelog_overlay.hide();
 	}
 	var html = "\
-		<div id = \"changelog-box\"> \n\
+		<div id = \"changelog-bg\"></div>\
+		<div id = \"changelog-box\"> \
 		";
-	if (isUpdate){
+	if (isNothingNew){
 		html+="\
-			<div class=\"title\">New Version available.</div> \																																																																										\n\
-			Current Version: <b>" + lastVersion + "</b>\
-			New     Version: <b>" + newVersion + "</b><br />\
-			<a href=\"" + updateURL + "\">Update</a>\
-			<ul> \
+			<div class=\"title\">Yee-haw!<br />You are Up to date.</div> \																																																																										\n\
+			Current Version: <b>" + lastVersion + "</b><br />\
 		";
+		if (updateDiff != 0){
+			html+="\
+				In fact the Server has an older version:<br>\
+				Server Version: <b>" + newVersion + "</b><br />\
+			";
+		}
+		html+="<input class=\"update-link\" type=\"button\" id=\"update-check-button\" value=\"Check for Update\" data-unused-data-tag=\"empty\" />";
 	}else{
-		html+="\
-			<div class=\"title\">Derpiscript Changelog</div> \																																																																										\n\
-			Current Version: <b>" + newVersion + "</b><br />\
-			Last    Version: <b>" + lastVersion + "</b>\
-			<ul> \
-		";
-	}
-	var wasNewVersion = false;
-	var wasLastVersion = false;
-	for(var i = 0; i< changelog.length; i++){
-		var change = changelog[i];
-		var version = change.substr(0,change.indexOf(" "));
-		var text = change.substr(change.indexOf(" ")+1);
-		var textarray = text.split("|");
-		html += "<li class=\"" + (wasLastVersion ? " old":"") + "\"> \n";
-		html += "<div class=\"versionstring" + (newVersion == version ? " new": "") + (lastVersion == version ? " last": "") + (wasLastVersion ? " old":"") + "\">Version "+ version + ":</div> \n";
-		wasLastVersion = (lastVersion == version ? true : wasLastVersion);
-		if (isUpdate && wasLastVersion){
+		if (isUpdate){
+			html+="\
+				<div class=\"title\">A new version of Derpiscript is available.</div> \																																																																										\n\
+				Current Version: <b>" + lastVersion + "</b><br />\
+				New     Version: <b>" + newVersion + "</b><br />\
+				<input class=\"update-link\" type=\"button\" id=\"update-link-button\" value=\"Install Update\" data-updateurl=\"" + updateURL + "\" /> \																																																																										\n\
+				<input class=\"update-ignore\" type=\"button\" id=\"update-ignore-button\" value=\"Ignore this version\" data-version=\"" + newVersion + "\" /> \																																																																										\n\
+				<ul> \
+			";
+		}else{
+			html+="\
+				<div class=\"title\">Derpiscript Changelog</div> \																																																																										\n\
+				Current Version: <b>" + newVersion + "</b><br />\
+				Last    Version: <b>" + lastVersion + "</b><br />\
+				Last    Check: <b>" + GM_getValue("updates_last") + "</b><br />\
+				<input class=\"update-link\" type=\"button\" id=\"update-check-button\" value=\"Check for Update\" data-unused-data-tag=\"empty\" /> \																																																																										\n\
+				<ul> \
+			";
+		}
+		var wasNewVersion = false;
+		var wasLastVersion = false;
+		for(var i = 0; i< changelog.length; i++){
+			var change = changelog[i];
+			var version = change.substr(0,change.indexOf(" "));
+			var text = change.substr(change.indexOf(" ")+1);
+			var textarray = text.split("|");
+			if (isUpdate && lastVersion == version){
+				break;
+			}
+			html += "<li class=\"" + (wasLastVersion ? " old":"") + "\"> \n";
+			html += "<div class=\"versionstring" + (newVersion == version ? " new": "") + (lastVersion == version ? " last": "") + (wasLastVersion ? " old":"") + "\">Version "+ version + ":</div> \n";
+			wasLastVersion = (lastVersion == version ? true : wasLastVersion);
+			html += "<ul class=\"" + (wasLastVersion ? " old":"") + "\"> \n";
+			for(var j = 0; j < textarray.length; j++){
+				html += "<li>" + textarray[j] + "</li> \n";
+			}
+			html += "</ul> \n";
 			html += "</li>";
-			break;
 		}
-		html += "<ul class=\"" + (wasLastVersion ? " old":"") + "\"> \n";
-		for(var j = 0; j < textarray.length; j++){
-			html += "<li>" + textarray[j] + "</li> \n";
-		}
-		html += "</ul> \n";
-		html += "</li>";
+		html += "</ul>";
 	}
-	html += "</ul></div>";
-	//html += "<input type=\"button\" value=\"close\"></input>";
-	changelog_bg.innerHTML = html;
-	if(createNew) {
-		document.getElementsByTagName('body')[0].appendChild(changelog_bg);
-	}else{
-		changelog_bg.style.display = "block";
-	}
+	html += "</div>";
+	changelog_overlay.html(html);
+	changelog_overlay.show();
+
+	$("#changelog-bg").click(function(event) {
+		$("#changelog-overlay").hide();
+	});
+	//$id("update-link-button").
+	$("#update-link-button").click(function(event) {
+		var url = $(this).data('updateurl');
+		if(url) GM_openInTab(url);
+		$("#changelog-overlay").hide();
+		event.preventDefault(); // cancel default behavior
+		return false;
+	});
+	$("#update-ignore-button").click(function(event) {
+		var version = $(this).data('version');
+		if(version) GM_setValue('updates_ignoreVersionNumber', version);
+		$("#changelog-overlay").hide();
+		event.preventDefault(); // cancel default behavior
+		return false;
+	});
+	$("#update-check-button").click(function(event) {
+		checkAutoUpdate(true);
+		event.preventDefault(); // cancel default behavior
+	});
 }
 
 function doPageType(p){
@@ -530,8 +587,8 @@ function removeDownloaded(pictureNumberAsString){
  * @returns {number|NaN}
  * <ul>
  *    <li>0 if the versions are equal</li>
- *    <li>a negative integer iff v1 < v2</li>
- *    <li>a positive integer iff v1 > v2</li>
+ *    <li>a negative integer if v1 < v2</li>
+ *    <li>a positive integer if v1 > v2</li>
  *    <li>NaN if either version string is in the wrong format</li>
  * </ul>
  *
@@ -2051,6 +2108,8 @@ function create_page_all() {
 		padding-right: 2px;			\
 	} 							\
 	';
+	//TODO: tag-system
+	//TODO: tag-ns-artist
 	applyStyle(css, "tags-allpage");
 	/*$(".tag-list").find('.tag-span-unwatched').each(function(){
 		$(this).html($.trim($(this).html()));
