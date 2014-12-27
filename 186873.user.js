@@ -1370,28 +1370,30 @@ function create_search_addons(){
 		\
 	";
 	applyStyle(css, "search_addons");
+	//TODO: expandable* with <i class="fa fa-bars"></i> button - *) enable in settings.
 	$.each(buttons, function(unneeded, button) {
-		button.obj = $('<a id="derpiscript_easysearch_button_' + button.name + '" class="addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertBefore(form.children("input:submit"));
-		//button.obj = form.child('#derpiscript_easysearch_button_' + button.name);
+		button.obj = $('<a class="addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertBefore(form.children("input:submit"));
 		button.input =  $('<input type="hidden" name="' + button.name + '" value="' + button.undef + '">').appendTo(form);
 		form.append(button.input);
 		button.obj.data("tooltip",button.tooltip);
+		button.obj.data("name",button.name);
+		button.obj.data("input",button.input);
 		button.obj.attr("title", "Search " + button.tooltip + "?");
 		button.obj.click( function() {
-			var btn = $( this );
+			var btn   = $( this );
+			var input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']"); 
 			if (btn.hasClass("on")){ //was on
 				btn.toggleClass("on", false);
-				// is now off
+				input.attr("value","not"); // is now off
 				btn.toggleClass("off", true);
 				btn.attr("title", "No " + btn.data("tooltip"));
 			} else if (btn.hasClass("off")){ //was off
 				btn.toggleClass("off", false);
-				// is now default
+				input.attr("value",""); // is now default
 				btn.attr("title", "Search " + btn.data("tooltip") + "?");
-
 			} else { //was default
 				btn.toggleClass("on", true);
-				// is now on
+				input.attr("value","only"); // is now on
 				btn.attr("title", btn.data("tooltip") + " Only");
 			}
 			
