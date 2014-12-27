@@ -27,9 +27,11 @@
 // @grant          GM_openInTab
 // @grant          GM_xmlhttpRequest
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.js
+// @require        https://gist.github.com/raw/2625891/waitForKeyElements.js
 // @updateURL      https://resources.flutterb.at/userscript/186873.user.js
 // @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
-// @version        0.1.4.0
+// @version        0.1.4.1
+// @history        0.1.4.1 image list now highlights voted/faved images more visibility.
 // @history        0.1.4.0 changed tag highlighting to be less annoying : ) | fixed preferences. | fixed emergency hide button.
 // @history        0.1.3.9 notification, if new update is available. | updated jquery from  1.2.6 to 1.11.1 (wow) | changelog now use state-of-the-art css! | added feedback if forced version check has no new version.
 // @history        0.1.3.8 setting now attached to normal derpibooru settings tabs. Click "Derpiscript" tab to access the settings. | added different tag coloring for watched, spoilered and hidden tags. | added rudimentary error display when script Version detections randomly dies. Error seems to be a Greasemonkey related bug. (Error: Greasemonkey access violation: unsafeWindow cannot call GM_*).
@@ -460,6 +462,8 @@ function doPageType(p){
 		create_page_image(p);
 	} else if(p.type == "settings"){
 		create_page_settings(p);
+	} else if(p.type == "album"){
+		create_page_album(p);
 	}else if(p.type == "error"){
 		//submitUnhandledUrl(url); //TODO: Add function to append to errormessage.
 	}else{
@@ -476,12 +480,20 @@ function doPageType(p){
  * 		overlaymode: 0: default image,  1: image zoom
  * 		Links Array: links = {img_full:"", img_dl:"", page_next:"", page_prev:"", page_rand:"", ready:false};
  *		Data  Array:  data = {img_dl_frame: null};
- * 
+ * {type:"album", emergencyHide:false, isImage:false, isAlbum: true, url:url, albumType: "tag",  tag: <the tag>, matcharray: m};
+ *
  **/
 
-function getPageType(url){
-		//Use window.location.pathname
-		var imageRegex = new RegExp("(\\/images)?\\/(\\d+)(.*?)"); //IMAGE pages with a number (single images)
+function getPageType(url){		//Use window.location.pathname
+
+		var albumRegex = new RegExp("\\/tags\\/([a-z0-9\\-]+)(.*?)"); //ALBUM pages with a number
+		var m = albumRegex.exec(url);
+		if (m != null) {
+			return {type:"album", emergencyHide:false, isImage:false, isAlbum: true, url:url, albumType: "tag",  tag: m[1], matcharray: m};
+		} else if ($("#imagelist_container").length > 0){
+			return {type:"album", emergencyHide:false, isImage:false, isAlbum: true, url:url, albumType: "unknown"};
+		}
+		var imageRegex = new RegExp("(\\/images)?\\/(\\d+)(.*?)"); //IMAGE pages with a number (single images) //TODO: https://derpibooru.org/images/page/3 is no image!
 		//var pageAndScope = new RegExp(".*?(page=(\\d+))?(.*?)(scope=(scpe[0-9a-f]{40}))?(.*?)"); //image pages with a number 
 		var m = imageRegex.exec(url);
 		if (m != null) {
@@ -489,11 +501,6 @@ function getPageType(url){
 			var dataarray = {img_dl_frame: null};
 			var linkarray = {img_full:"",img_dl:"",page_next:"",page_prev:"",page_rand:"", ready:false};
 			return {type:"image", emergencyHide:false, isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m, links: linkarray, data: dataarray};
-		}
-		var albumRegex = new RegExp("\\/tags\\/([a-z0-9\\-]+)(.*?)"); //ALBUM pages with a number
-		var m = albumRegex.exec(url);
-		if (m != null) {
-			return {type:"album", emergencyHide:false, isImage:false, isAlbum: true, url:url, albumType: "tag",  tag: m[1], matcharray: m};
 		}
 		//TODO: implement settings at "/settings"
 		//TODO: move settings there.
@@ -984,9 +991,13 @@ function final_img(){
 
 function img_goto(symbl){
 	if(symbl=='#'){ //zoom
+		console.log("page.emergencyHide: " + page.emergencyHide + ", page.overlaymode: " + page.overlaymode);
+		showWarning("tast");
 		if (!page.emergencyHide && page.overlaymode == 0){
 			if(page.isImage) {
 				show_img(page.links.img_full); 
+			}else{
+				showWarning("Page is not image, no fullscreen.");
 			}
 			
 		}else if (page.emergencyHide || page.overlaymode == 1){ //TODO: does this var exist?
@@ -1238,6 +1249,57 @@ function applyStyle(css, id){
 		style.styleSheet.cssText=css;
 	}else{ 
 		style.appendChild(document.createTextNode(css));
+	}
+}
+
+function create_page_album(){
+	var css = "\
+	div.image.voted_up.faved { \
+		outline: 2px dashed #67AF2B; \
+		box-shadow: 0 0 0 2px #C4B246; \
+	} \
+	div.image.voted_down.faved { \
+		outline: 2px dashed #CF0001; \
+		box-shadow: 0 0 0 2px #C4B246; \
+	} \
+	div.image.voted_up { \
+		outline: 2px solid #67AF2B; \
+	} \
+	div.image.voted_down { \
+		outline: 2px solid #CF0001; \
+	} \
+	div.image.faved { \
+		outline: 2px solid #C4B246; \
+	} \
+	 \
+	";
+	applyStyle(css, "album");
+	
+	waitForKeyElements ("div.imageinfo span a.vote_down_link.voted_down", page_album_highlighter, false);
+	waitForKeyElements ("div.imageinfo span a.vote_up_link.voted_up", page_album_highlighter, false);
+	waitForKeyElements ("div.imageinfo span a.fave_link.faved", page_album_highlighter, false);
+	/*$(".imageinfo a.vote_up_link.voted_up").parents('div.image').addClass("voted_up");
+	$("div.imageinfo span a.vote_up_link.voted_up").parents('div.image').addClass("voted_up");
+	console.log($("div.image div.imageinfo span a.voted_up"));
+	$(".imageinfo a.fave_link.faved").parents('div.image').addClass("faved");*/
+}
+function page_album_highlighter(jNode){
+	console.log(jNode);
+	var parents = jNode.parents('div.image');
+	if(jNode.hasClass("faved")) {
+		parents.addClass("faved");
+	} else {
+		parents.removeClass("faved");
+	}
+	if(jNode.hasClass("voted_up")) {
+		parents.addClass("voted_up");
+	} else {
+		parents.removeClass("voted_up");
+	}
+	if(jNode.hasClass("voted_down")) {
+		parents.addClass("voted_down");
+	} else {
+		parents.removeClass("voted_down");
 	}
 }
 
@@ -2012,6 +2074,7 @@ function create_page_image(page){
 	checkButtonPos(0);
 	window.onload = scrollToPic;
 	
+	
 	//Init Key Bindings
 	window.addEventListener("keypress" , function(e){
 		if (e.shiftKey === true){
@@ -2028,6 +2091,7 @@ function create_page_image(page){
 		}else if(e.keyCode == 34){//kp_3
 			img_goto('+'); //next page
 		}else if(e.keyCode == 12){ //kp_5
+			console.log("hua!")
 			img_goto('#'); //zoom
 		} else if(e.keyCode == 13){ //Enter or Zero
 			bookmark();
@@ -2039,6 +2103,7 @@ function create_page_image(page){
 			}
 		}else{
 		   console.log('Pressed unegistered key "' + e.keyCode + '" with char code "' + e.charCode + '".');
+		   alert('Pressed unegistered key "' + e.keyCode + '" with char code "' + e.charCode + '".');
 		}
 	}, false);
 }
