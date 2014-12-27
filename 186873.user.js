@@ -129,6 +129,7 @@ var changelog_bg;
 doVersionCheck(gm_lastScriptVersion, scriptVersion);
 var page = getPageType(window.location.pathname);
 console.log(page);
+pageTypeAssert(page);
 doPageType(page);
 checkAutoUpdate(false);
 
@@ -480,6 +481,9 @@ function doPageType(p){
  *		Data  Array:  data = {img_dl_frame: null};
  * {type:"album", emergencyHide:false, isImage:false, isAlbum: true, url:url, albumType: "tag",  tag: <the tag>, matcharray: m};
  *
+ *
+ * .isSearch means, we have a serch box at the bottom, with advanced search settings 			(Settings like the "Search Faves?", "Search Upvotes?", "Search My Uploads?", "Search Watched Tags?", "Minimum Score", "Maximum Score", "Sort By", "Sort Direction", etc.) 
+ * 
  **/
 
 function getPageType(url){		//Use window.location.pathname
@@ -487,26 +491,53 @@ function getPageType(url){		//Use window.location.pathname
 		var albumRegex = new RegExp("\\/tags\\/([a-z0-9\\-]+)(.*?)"); //ALBUM pages with a number
 		var m = albumRegex.exec(url);
 		if (m != null) {
-			return {type:"album", emergencyHide:false, isImage:false, isAlbum: true, url:url, albumType: "tag",  tag: m[1], matcharray: m};
+			return {type:"album", emergencyHide:false, isImage:false, isAlbum: true, isSearch: false, url:url, albumType: "tag",  tag: m[1], matcharray: m};
 		} else if ($("#imagelist_container").length > 0){
-			return {type:"album", emergencyHide:false, isImage:false, isAlbum: true, url:url, albumType: "unknown"};
+			return {type:"album", emergencyHide:false, isImage:false, isAlbum: true, isSearch:(url == "/search"), url:url, albumType: "unknown"};
 		}
-		var imageRegex = new RegExp("(\\/images)?\\/(\\d+)(.*?)"); //IMAGE pages with a number (single images) //TODO: https://derpibooru.org/images/page/3 is no image!
+		var imageRegex = new RegExp("(\\/images)?\\/(\\d+)(.*?)"); //IMAGE pages with a number (single images) //TODO: https://derpibooru.org/images/page/3 is no image! //TODO is this rally fixed?
 		//var pageAndScope = new RegExp(".*?(page=(\\d+))?(.*?)(scope=(scpe[0-9a-f]{40}))?(.*?)"); //image pages with a number 
 		var m = imageRegex.exec(url);
 		if (m != null) {
 			imgNumber = m[2];
 			var dataarray = {img_dl_frame: null};
 			var linkarray = {img_full:"",img_dl:"",page_next:"",page_prev:"",page_rand:"", ready:false};
-			return {type:"image", emergencyHide:false, isImage:true, isAlbum: false, url:url,  image: imgNumber, matcharray: m, links: linkarray, data: dataarray};
+			return {type:"image", emergencyHide:false, isImage:true, isAlbum: false, isSearch: false, url:url,  image: imgNumber, matcharray: m, links: linkarray, data: dataarray};
 		}
-		//TODO: implement settings at "/settings"
-		//TODO: move settings there.
 		if (url == "/settings"){
 			return {type:"settings", emergencyHide:false, isImage:false, isAlbum: false, url:url};
 		}
+		if (url == "/search"){
+			return {type:"search", emergencyHide:false, isImage:false, isAlbum: false, isSearch: true, url:url};
+		}
 		submitUnhandledUrl(url);
-		return {type:"error", emergencyHide:false, message:"No matching page found.", isImage:false, isAlbum: false, url:url};
+		return {type:"error", emergencyHide:false, message:"No matching page found.", isImage:false, isAlbum: false, isSearch: false, url:url};
+}
+function pageTypeAssert(p) {
+	if (
+		assertIsDefined(p, "type") &&
+		assertIsDefined(p, "emergencyHide") &&
+		assertIsDefined(p, "isImage") &&
+		assertIsDefined(p, "isAlbum") &&
+		assertIsDefined(p, "isSearch") &&
+		assertIsDefined(p, "url") &&
+		assertIsDefined(p, "foo") &&
+		true //to be able to copy&paste the lines still ending with '&&'.
+	) {
+		//everything ok
+	}else{
+		throw new Error("Error in Page type, has undefined value(s).");
+	}
+		
+}
+function assertIsDefined(variable, name) {
+	if (variable[name] == undefined){
+		showWarning('Variable has illigal undefined property "' + name + '"');
+		console.error('Variable has undefined property "' + name + '".\n', variable);
+		console.error(variable);
+		return false;
+	}
+	return true;
 }
 function submitUnhandledUrl(url){
 	var err_message = "ERROR:\n" 
@@ -1396,7 +1427,6 @@ function create_search_addons(){
 				input.attr("value","only"); // is now on
 				btn.attr("title", btn.data("tooltip") + " Only");
 			}
-			
 		});
 	});
 	
