@@ -239,7 +239,6 @@ function applyUpdate(metaBlock, newestVersion, newestUpdateURL, forcedUpdate){
 
 
 
-//alert("Daring Do is bestpony"); //or maybe Maud, now in season 4...
 
 (function ($) {
    $(document);
@@ -362,7 +361,6 @@ function showChangelogVersion(lastVersion, newVersion, infostring, updateURL, is
 			changelog[changelog.length] = line;
 		}
 	}
-	//alert(changelog.join("\n"));
 	var changelog_overlay = $("#changelog-overlay");
 	var createNew = !(changelog_overlay.length > 0);
 	if(createNew) {
@@ -649,6 +647,37 @@ function versionCompare(v1, v2, options) {
 
     return 0;
 }
+/*
+ * getStyleObject Plugin for jQuery JavaScript Library
+ * http://stackoverflow.com/a/6416477
+ */
+function getStyleObject(element){
+	var dom = element.get(0);
+	var style;
+	var returns = {};
+	if(window.getComputedStyle){
+		var camelize = function(a,b){
+			return b.toUpperCase();
+		}
+		style = window.getComputedStyle(dom, null);
+		for(var i=0;i<style.length;i++){
+			var prop = style[i];
+			var camel = prop.replace(/\-([a-z])/g, camelize);
+			var val = style.getPropertyValue(prop);
+			returns[camel] = val;
+		}
+		return returns;
+	}
+	if(dom.currentStyle){
+		style = dom.currentStyle;
+		for(
+		var prop in style){
+			returns[prop] = style[prop];
+		}
+		return returns;
+	}
+	return this.css();
+};
 // http://james.padolsey.com/javascript/debug-jquery-events-with-listhandlers/
 /*
 // List all onclick handlers of all anchor elements:
@@ -660,7 +689,6 @@ $('*').listHandlers('*', console.info);
 // Write a custom output function:
 $('#whatever').listHandlers('click',function(element,data){
     $('body').prepend('<br />' + element.nodeName + ': <br /><pre>' + data + '<\/pre>');
-});
 */
 $.fn.listHandlers = function(events, outputFunction) {
     return this.each(function(i){
@@ -1282,6 +1310,8 @@ function create_page_album(){
 	$("div.imageinfo span a.vote_up_link.voted_up").parents('div.image').addClass("voted_up");
 	console.log($("div.image div.imageinfo span a.voted_up"));
 	$(".imageinfo a.fave_link.faved").parents('div.image').addClass("faved");*/
+	create_search_addons();
+	
 }
 function page_album_highlighter(jNode){
 	console.log(jNode);
@@ -1303,6 +1333,42 @@ function page_album_highlighter(jNode){
 	}
 }
 
+function create_search_addons(){
+
+	var form = $("div.searchbox form");
+	var buttons = {
+		faves:   {obj: null, input: null, name: "faves",   on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-star"></i>', tooltip:"Faves"},
+		votes:   {obj: null, input: null, name: "upvotes", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-arrow-up"></i>', tooltip:"Upvotes"},
+		uploads: {obj: null, input: null, name: "uploads", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-upload"></i>', tooltip:"Uploads"},
+		watched: {obj: null, input: null, name: "watched", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-eye"></i>', tooltip: "Watched Tags"}
+	}
+	var submit = form.children("input:submit");
+	var buttonStyle = getStyleObject(submit);
+	var css = "\
+		div.searchbox form .addon_button{ \
+			color: " + buttonStyle.color + "; \
+			background-color: " + buttonStyle.backgroundColor + "; \
+			font-size: 10px; \
+		} \
+		div.searchbox form .addon_button.on { \
+			color:#264827 !important; \
+			background-color:#57A559 !important; \
+		} \
+		div.searchbox form .addon_button.off { \
+			color:#482627 !important; \
+			background-color:#A55759 !important; \
+		} \
+		\
+	";
+	applyStyle(css, "search_addons");
+	$.each(buttons, function(unneeded, button) {
+		button.obj = form.children("input:submit").before('<a id="derpiscript_easysearch_button_' + button.name + '" class="addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>');
+		//button.obj = form.child('#derpiscript_easysearch_button_' + button.name);
+		button.input = form.append('<input type="hidden" name="' + button.name + '" value="' + button.undef + '">');
+		form.append(button.input);
+	});
+	
+}
 function create_page_settings(){
 	var css = "\
 	#settingsbody {                                                               \n\
@@ -2106,6 +2172,7 @@ function create_page_image(page){
 		   alert('Pressed unegistered key "' + e.keyCode + '" with char code "' + e.charCode + '".');
 		}
 	}, false);
+	create_search_addons();
 }
 function create_page_all() {
 	var css='\
