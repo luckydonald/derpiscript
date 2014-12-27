@@ -27,8 +27,9 @@
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.js
 // @updateURL      https://resources.flutterb.at/userscript/186873.user.js
 // @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
-// @version        0.1.3.7
-// @history        0.1.3.7 fixed likeButton, now working again. | settings moved to derpibooru settings page. | changelog will now be displayed on version change. | now parsing the @history tags to have changelog in one place. | version string in settings now opens changelog window too.
+// @version        0.1.3.8
+// @history        0.1.3.8 setting now attached to normal derpibooru settings tabs. Click "Derpiscript" tab to access the settings. | added different tag coloring for watched, spoilered and hidden tags. | added rudimentary error display when script Version detections randomly dies. Error seems to be a Greasemonkey related bug. (Error: Greasemonkey access violation: unsafeWindow cannot call GM_*).
+// @history        0.1.3.7 fixed likeButton, now working again. | settings moved to derpibooru settings page. | changelog will now be displayed on version change. | now parsing the @history tags to have changelog in one place. | clicking on version string in settings now opens changelog window too.
 // @history        0.1.3.6 added settings to keep Button on top or on bottom. One step further being iPad/iOS/Android/MobilePhone ready! | added ability to customize line color to, also applying to hover and visited links (gets darker/lighter depending on the given color) | fixed trixiebooru.org domain.
 // @history        0.1.3.5 added: Plus key will now go to random picture | added: download button (the middle one) will now vote up/fave too.
 // @history        0.1.3.4 fixed "Disable Button moving" setting | fixed settings design problems. 
@@ -80,6 +81,7 @@
 	var linkColor = "#57a4db";
     var downloadedPictures = "|"; //array with image numbers as string, seperated by "|" (to be crossdomain conform and save space). Also starting and Ending with "|"s.
 	var lastScriptVersion = "Not installed."; //version Check.
+	var hideAds = true;
 
 // End of User Settings.
 // Do not modify the Script below.
@@ -111,6 +113,8 @@ downloadedPictures = GM_getValue('downloadedPictures',downloadedPictures);
                   GM_setValue('downloadedPictures',downloadedPictures);
 lastScriptVersion = GM_getValue('lastScriptVersion',lastScriptVersion);
                   GM_setValue('lastScriptVersion',lastScriptVersion);
+hideAds = GM_getValue('hideAds',hideAds);
+                  GM_setValue('hideAds',hideAds);
 
 
 //getPageType(window.location.pathname);
@@ -131,11 +135,20 @@ doPageType(page);
 function $_(id){
 	return document.getElementById(id);
 }
-
+function $id(id){
+	return document.getElementById(id);
+}
+function $class(class_name){
+		return document.getElementsByClassName(class_name)[0];
+}
 function _(class_name){
 		return document.getElementsByClassName(class_name);
 }
 function doVersionCheck(lastVersion, newVersion){
+	if(lastVersion == undefined || newVersion == undefined) {
+		showWarning("Undefined Value in Versions, Greasemonkey Error.\nlastVersion: " + lastVersion + " newVersion:" +newVersion);
+		return null;
+	}
 	if(lastVersion != newVersion) {
 		var item = showChangelogVersion(lastVersion, newVersion);
 		GM_setValue('lastScriptVersion', newVersion);
@@ -151,16 +164,17 @@ function showChangelog(){
 
 function showChangelogVersion(lastVersion, newVersion){
 	var css = "\
-		#changelog-bg {				\n\
+		#changelog-bg {																  \n\
 			color:black;                                                              \n\
 			position: fixed;														  \n\
-			top: 0;														  \n\
-			bottom: 0;														  \n\
-			left: 0;														  \n\
-			right: 0;														  \n\
-			background-color: rgba(255, 255, 255,0.4);		 \n\
-		}							\n\
-		#changelog-box{				\n\
+			top: 0;																	  \n\
+			bottom: 0;																  \n\
+			left: 0;																  \n\
+			right: 0;																  \n\
+			z-index: 2;																  \n\
+			background-color: rgba(255, 255, 255,0.4);								  \n\
+		}					 														  \n\
+		#changelog-box{ 															  \n\
 			background-color:white;                                                   \n\
 			color:black;                                                              \n\
 			box-shadow: 0px 0px 40px rgb(33, 33, 33);                                 \n\
@@ -170,39 +184,46 @@ function showChangelogVersion(lastVersion, newVersion){
 			background-color: #ffffff;                                                \n\
 			width: 400px;                                                             \n\
 			position: fixed;														  \n\
-			top: 10px;														  \n\
-			bottom: 10px;														  \n\
-			overflow:scroll; \n\
-			margin-left: -200px; \n\
-			left: 50%; \n\
-		}							\n\
-		.versionstring { 			\n\
-			padding-top: 1em; 		\n\
-			font-size: 1em;			\n\
-			font-style:italic;		\n\
-		}							\n\
-		.versionstring.new {		\n\
-			font-style: normal;		\n\
-			font-weight: bold;		\n\
-		}							\n\
-		#changelog-box .title {		\n\
-			font-weight: bold;		\n\
-			padding-bottom: 0.5em;	\n\
-		}							\n\
-		.versionstring.last {		\n\
-			font-style: normal;		\n\
-			font-weight: bold;		\n\
-		}							\n\
-		.versionstring.last:before {\n\
-			content: \"(last) \";	\n\
-			color:red;				\n\
-		}							\n\
-		.versionstring.new:before {	\n\
-			content: \"(new) \";	\n\
-			color:green;			\n\
-		}							\n\
+			top: 10px;														 		  \n\
+			bottom: 10px;														 	  \n\
+			margin-left: -200px; 													  \n\
+			left: 50%;																  \n\
+			overflow:auto; 															  \n\
+		} 																			  \n\
+		.versionstring { 				\n\
+			padding-top: 1em; 			\n\
+			font-size: 1em;				\n\
+			font-style:italic;			\n\
+		}								\n\
+		.versionstring.new {			\n\
+			font-style: normal;			\n\
+			font-weight: bold;			\n\
+		}								\n\
+		#changelog-box .title {			\n\
+			font-weight: bold;			\n\
+			padding-bottom: 0.5em;		\n\
+		}								\n\
+		.versionstring.last {			\n\
+			font-style: normal;			\n\
+			font-weight: bold;			\n\
+		}								\n\
+		.versionstring.last:before {	\n\
+			content: \"(last) \";		\n\
+			color:red;					\n\
+		}								\n\
+		.versionstring.new:before {		\n\
+			content: \"(new) \";		\n\
+			color:green;				\n\
+		}								\n\
+		.versionstring.last.new:before{	\n\
+			content: \"(current) \";	\n\
+			color:green;				\n\
+		}								\n\
+		#changelog-box .old {			\n\
+			color:grey;					\n\
+		}								\n\
 		";
-	applyStyle(css, "versioncheck");
+	applyStyle(css, "changelog");
 	infostring = GM_info.scriptMetaStr;
 	infostring = infostring.replace(/\r?\n/g, "\n");
 	infostring = infostring.replace(/\r/g, "\n");
@@ -238,14 +259,17 @@ function showChangelogVersion(lastVersion, newVersion){
 		Last    Version: <b>" + lastVersion + "</b>\n\
 		<ul> \n\
 		";
+	var wasNewVersion = false;
+	var wasLastVersion = false;
 	for(var i = 0; i< changelog.length; i++){
 		var change = changelog[i];
 		var version = change.substr(0,change.indexOf(" "));
 		var text = change.substr(change.indexOf(" ")+1);
 		var textarray = text.split("|");
-		html += "<li> \n";
-		html += "<div class=\"versionstring" + (newVersion == version ? " new": "") + (lastVersion == version ? " last": "") + "\">Version "+ version + ":</div> \n";
-		html += "<ul> \n";
+		html += "<li class=\"" + (wasLastVersion ? " old":"") + "\"> \n";
+		html += "<div class=\"versionstring" + (newVersion == version ? " new": "") + (lastVersion == version ? " last": "") + (wasLastVersion ? " old":"") + "\">Version "+ version + ":</div> \n";
+		wasLastVersion = (lastVersion == version ? true : wasLastVersion);
+		html += "<ul class=\"" + (wasLastVersion ? " old":"") + "\"> \n";
 		for(var j = 0; j < textarray.length; j++){
 			html += "<li>" + textarray[j] + "</li> \n";
 		}
@@ -314,7 +338,9 @@ function submitUnhandledUrl(url){
 		+ "Unhandled page found: \"" + url + "\",\n"
 		+ "Current URL: \"" + location.href  + "\"\n"
 		+ "Please mail this text to derpiscript@flutterb.at (with the subject \"#UnhandledUrl\" in your email)";
-	
+	showWarning(err_message);
+}
+function showWarning(err_message){	
 	var warning_elem = document.createElement('a');
 	warning_elem.style.color = "#FFFFFF";
 	warning_elem.style.backgroundColor = "#FF0000";
@@ -336,7 +362,11 @@ function getPageEnding(url){
 		url = url.replace(/^.*\/\/[^\/]+/, '');
 		return url;
 }
-
+function createElementFromHTML(html){
+	var div = document.createElement('div');
+	div.innerHTML = html;
+	return div.firstChild;
+}
 function checkIfDownloaded(pictureNumberAsString){
 	downloadedPictures = GM_getValue('downloadedPictures',downloadedPictures);
 	return ( downloadedPictures.indexOf("|" + pictureNumberAsString + "|") != 1 ) ;
@@ -363,6 +393,33 @@ function removeDownloaded(pictureNumberAsString){
 // Libraries:
 // Libraries:
 
+// http://james.padolsey.com/javascript/debug-jquery-events-with-listhandlers/
+/*
+// List all onclick handlers of all anchor elements:
+$('a').listHandlers('onclick', console.info);
+ 
+// List all handlers for all events of all elements:
+$('*').listHandlers('*', console.info);
+ 
+// Write a custom output function:
+$('#whatever').listHandlers('click',function(element,data){
+    $('body').prepend('<br />' + element.nodeName + ': <br /><pre>' + data + '<\/pre>');
+});
+*/
+$.fn.listHandlers = function(events, outputFunction) {
+    return this.each(function(i){
+        var elem = this,
+            dEvents = $(this).data('events');
+        if (!dEvents) {return;}
+        $.each(dEvents, function(name, handler){
+            if((new RegExp('^(' + (events === '*' ? '.+' : events.replace(',','|').replace(/^on/i,'')) + ')$' ,'i')).test(name)) {
+               $.each(handler, function(i,handler){
+                   outputFunction(elem, '\n' + i + ': [' + name + '] : ' + handler );
+               });
+           }
+        });
+    });
+};
 //http://javascript.about.com/library/bldom08.htm
 document.getElementsByClassName = function(cl) {
 	var retnode = [];
@@ -1052,6 +1109,25 @@ function create_page_settings(){
 		border: 1px solid darkgrey;                                               	\n\
 		padding: 5px 10px 5px 10px;                                               	\n\
 	}                                                                             	\n\
+	#settingsbox .guidelines {                         \n\
+		display: block;                           \n\
+	}                                            \n\
+	.non-label { \n\
+		float: none;\n\
+	}\n\
+	input[type=\"radio\"]{\
+		margin-top: 8px;\
+		margin-left: 5px;\
+	}\
+	.colorresult {                               \n\
+		border: 1px solid darkgrey;                                               	\n\
+		padding: 5px 10px 5px 10px;                                               	\n\
+	}                                                                             	\n\
+	#script_version_field{     														\n\
+		text-decoration: underline;													\n\
+		cursor:pointer;																\n\
+		cursor:hand;																\n\
+	}                              													\n\
 	";
 	applyStyle(css, "settings");
 	//Settings
@@ -1059,97 +1135,103 @@ function create_page_settings(){
 	settingsHTML="\
 	<a name=\"settings\" /></a>                                                                                                                                                                                                                                                                               \n\
 	<div id=\"settingsbox\" name=\"settingbox\" class=\"settingbox\">                                                                                                                                                                                                                                                                  \n\
-	<div class=\"ul\">                                                                                                                                                                                                                                                                                                          \n\
-		<div class=\"li\" id=\"settingsheader\" >                                                                                                                                                                                                                                                                                                          \n\
-			<div class=\"title\">Derpiscript Settings</div> 																																																																										\n\
-			<div id=\"versionbutton\" class=\"version\">Script Version: <span id=\"versionField\" class=\"versionField\">Error Displaying Version...</span></div> 																																																																										\n\
-		</div class=\"li\">                                                                                                                                                                                                                                                                                                          \n\
-		<div class=\"li\" id=\"li_dl\" >                                                                                                                                                                                                                                                                                         \n\
-			<label class=\"description\" for=\"element_dl\">Download Settings</label>                                                                                                                                                                                                                              \n\
-			<div class=\"grouper\" id=\"element_dl\">                                                                                                                                                                                                                                                              \n\
-			   <div class=\"row\" id=\"row_1\">                                                                                                                                                                                                                                                              \n\
-					<label class=\"choice\" for=\"element_dl_1\"><input id=\"element_dl_1\" name=\"element_dl_1\" class=\"element checkbox\" type=\"checkbox\" value=\"1\" />                                                                                                                                            \n\
-					Raw Filename</label>                                                                                                                                                                                                                                                                              \n\
-					<p class=\"guidelines\" for=\"element_dl_1\"><small>Set to <code>true</code>  to use the number only filename, e.g. \"197941.png\"<br>Set to <code>false</code> to use the full filename, e.g. \"197941__safe_rainbow+dash_artist-colon-luckydonald.png\"<br>Default is <code>false</code>.        \n\
-					</small></p>                                                                                                                                                                                                                                                                                      \n\
-			   </div>                                                                                                                                                                                                                                                                                                \n\
-			   <div class=\"row\" id=\"row_2\">                                                                                                                                                                                                                                                              \n\
-					<label class=\"choice\" for=\"element_dl_2\"><input id=\"element_dl_2\" name=\"element_dl_2\" class=\"element checkbox\" type=\"checkbox\" value=\"1\" />                                                                                                                                            \n\
-					Rate on Download</label>                                                                                                                                                                                                                                                                          \n\
-				<p class=\"guidelines\" for=\"element_dl_2\"><small>Set to <code>true</code>  to enable the automatic like/fave* when downloading the image.<br>Set to <code>false</code> to disable the automatic like/fave* function.<br>*) Specify in next line.<br>Default is <code>true</code>.</small></p>   \n\
-			   </div>                                                                                                                                                                                                                                                                                                \n\
-			   <div class=\"row\" id=\"row_3\">                                                                                                                                                                                                                                                              \n\
-					<label class=\"choice\" for=\"element_dl_3\"><input id=\"element_dl_3\" name=\"element_dl_3\" class=\"element checkbox\" type=\"checkbox\" value=\"1\" />                                                                                                                                            \n\
-					Vote-Up on Download</label>                                                                                                                                                                                                                                                                       \n\
-					<p class=\"guidelines\" for=\"element_dl_3\"><small> Set to <code>true</code> to automaticly Vote Up when downloading the image.<br>Set to <code>false</code> to automaticly Fave the image when downloading the image.<br>Default is <code>true</code>.                                            \n\
-					</small></p>                                                                                                                                                                                                                                                                                      \n\
-			   </div>                                                                                                                                                                                                                                                                                                \n\
-			</div>                                                                                                                                                                                                                                                                                                \n\
-		</div class=\"li\">                                                                                                                                                                                                                                                                                                     \n\
-		<div class=\"li\" id=\"li_move\" >                                                                                                                                                                                                                                                                                         \n\
-			<label class=\"description\" for=\"element_buttmove\">EasyButtons Mode</label>                                                                                                                                                                                                                                    \n\
-			<div class=\"grouper\" id=\"element_buttmove\">                                                                                                                                                                                                                                                              \n\
-			   <div class=\"row\" id=\"row_4\">                                                                                                                                                                                                                                                              \n\
-					<label class=\"choice\" for=\"element_move_1\"><input id=\"element_move_1\" name=\"element_buttmove\" class=\"element radio\" type=\"radio\" value=\"1\" />                                                                                                                                                    \n\
-					Disable Button moving</label>                                                                                                                                                                                                                                                            \n\
-					<p class=\"guidelines\" for=\"element_move_1\"><small>Disable Button moving.</small></p>                                                                                                                                                                                                    \n\
-			   </div>                                                                                                                                                                                                                                                                                                \n\
-			   <div class=\"row\" id=\"row_5\">                                                                                                                                                                                                                                                              \n\
-					<label class=\"choice\" for=\"element_move_2\"><input id=\"element_move_2\" name=\"element_buttmove\" class=\"element radio\" type=\"radio\" value=\"2\" />                                                                                                                                                    \n\
-					Laptop Mode 1 (default)</label>                                                                                                                                                                                                                                                                   \n\
-					<p class=\"guidelines\" for=\"element_move_2\"><small>Use the Laptop Mode, coming with little bigger buttons, which will be positioned fix in the upper left corner, and almost transparent uppon hover.</small></p>                                                                                 \n\
-			   </div>                                                                                                                                                                                                                                                                                                \n\
-			   <div class=\"row\" id=\"row_6\">                                                                                                                                                                                                                                                              \n\
-					<label class=\"choice\" for=\"element_move_3\"><input id=\"element_move_3\" name=\"element_buttmove\" class=\"element radio\" type=\"radio\" value=\"3\" />                                                                                                                                                    \n\
-					Laptop Mode 2</label>                                                                                                                                                                                                                                                                             \n\
-					<p class=\"guidelines\" for=\"element_move_3\"><small>Use the Laptop Mode, like above, but the buttons will not move higher then the picture beginning.</small></p>                                                                                                                                  \n\
-				</div>                                                                                                                                                                                                                                                                                                \n\
-																																																																												 \n\
-																																																																												  \n\
-			</div>                                                                                                                                                                                                                                                                                                \n\
-		</div class=\"li\">                                                                                                                                                                                                                                                                                                 \n\
-		<div class=\"li\" id=\"li_buttpos\" >                                                                                                                                                                                                                                                                                         \n\
-			<label class=\"description\" for=\"element_buttpos\">EasyButtons Position</label>                                                                                                                                                                                                                                    \n\
-			<div class=\"grouper\" id=\"element_buttpos\">                                                                                                                                                                                                                                                              \n\
-			   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
-					<label class=\"choice\" for=\"element_buttpos_1\"><input id=\"element_buttpos_1\" name=\"element_buttpos\" class=\"element radio\" type=\"radio\" value=\"1\" />                                                                                                                                                    \n\
-					Automatic (Default)</label>                                                                                                                                                                                                                                                            \n\
-					<p class=\"guidelines\" for=\"element_buttpos_1\"><small>Button will positioned either top or bottom, depending on the mouse position.</small></p>                                                                                                                                                                                                    \n\
-			   </div>                                                                                                                                                                                                                                                                                                \n\
-			   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
-					<label class=\"choice\" for=\"element_buttpos_2\"><input id=\"element_buttpos_buttpos\" name=\"element_buttpos\" class=\"element radio\" type=\"radio\" value=\"2\" />                                                                                                                                                    \n\
-					Top</label>                                                                                                                                                                                                                                                                   \n\
-					<p class=\"guidelines\" for=\"element_buttpos_2\"><small>Buttons will be positioned fix in the upper left corner.</small></p>                                                                                 \n\
-			   </div>                                                                                                                                                                                                                                                                                                \n\
-			   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
-					<label class=\"choice\" for=\"element_buttpos_3\"><input id=\"element_buttpos_3\" name=\"element_buttpos\" class=\"element radio\" type=\"radio\" value=\"3\" />                                                                                                                                                    \n\
-					Bottom</label>                                                                                                                                                                                                                                                                             \n\
-					<p class=\"guidelines\" for=\"element_buttpos_3\"><small>Buttons will be positioned fix in the lower left corner.</small></p>                                                                                                                                  \n\
-				</div>                                                                                                                                                                                                                                                                                                \n\
-			</div>                                                                                                                                                                                                                                                                                                \n\
-		</div class=\"li\">  																																																									\n\
-		<div class=\"li\" id=\"li_style\" >                                                                                                                                                                                                                                                                                     \n\
-			<label class=\"description\" for=\"element_style\">Styles</label><br>                                                                                                                                                                                                                                         \n\
-			<div class=\"grouper\" id=\"element_style\">                                                                                                                                                                                                                                                              \n\
-				<div class=\"row\" id=\"row_7\">                                                                                                                                                                                                                                                              \n\
-					<div class=\"block\">                                                                                                                                                                                                                                                                             \n\
-						<label class=\"choice\" for=\"element_style_bgcolor_colorpicker\">Background color &nbsp; </label>                                                                                                                                                                                                                         \n\
-						<input id=\"element_style_bgcolor_colorpicker\" name=\"element_style_bgcolor_colorpicker\" class=\"element colorpicker\" type=\"color\" value=\"#FFFFFF\"/>                                                                                                                                                                                             \n\
-						<span class=\"colorresult\" id=\"element_style_bgcolor_colorresult\">#FFFFFF</span>                                                                                                                                                                                                                        \n\
-					</div>                                                                                                                                                                                                                                                                                            \n\
-					<p class=\"guidelines\" for=\"element_style_bgcolor_colorpicker\"><small>Set the backgrund color. <br> Default is <code>#FFFFFF</code>, but my recommendation is <code>#777777</code>.                                                                                                                                                                                    \n\
-					</small></p>                                                                                                                                                                                                                                                                                      \n\
-			   </div>                                                                                                                                                                                                                                                                                                \n\
-			   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
-					<div class=\"block\">                                                                                                                                                                                                                                                                             \n\
-						<label class=\"choice\" for=\"element_style_linkcolor_colorpicker\">Link color &nbsp; </label>                                                                                                                                                                                                                         \n\
-						<input id=\"element_style_linkcolor_colorpicker\" name=\"element_style_linkcolor_colorpicker\" class=\"element colorpicker\" type=\"color\" value=\"#57A4DB\"/>                                                                                                                                                                                             \n\
-						<span class=\"colorresult\" id=\"element_style_linkcolor_colorresult\">#57A4DB</span>                                                                                                                                                                                                                        \n\
-					</div>                                                                                                                                                                                                                                                                                            \n\
-					<p class=\"guidelines\" for=\"element_style_bgcolor_colorpicker\"><small>Set the link color. <br> Default is <code>#57A4DB</code>.                                                                                                                                                                                    \n\
+		<div class=\"ul\">                                                                                                                                                                                                                                                                                                          \n\
+			<div class=\"li\" id=\"settingsheader\" >                                                                                                                                                                                                                                                                                                          \n\
+				<div class=\"title\">Derpiscript Settings</div> 																																																																										\n\
+				<div id=\"versionbutton\" class=\"version\">Script Version: <span id=\"versionField\" class=\"versionField\">Error Displaying Version...</span></div> 																																																																										\n\
+			</div class=\"li\">                                                                                                                                                                                                                                                                                                          \n\
+			<div class=\"li\" id=\"li_dl\" >                                                                                                                                                                                                                                                                                         \n\
+				<label class=\"description\" for=\"element_dl\">Download Settings</label>                                                                                                                                                                                                                              \n\
+				<div class=\"grouper\" id=\"element_dl\">                                                                                                                                                                                                                                                              \n\
+				   <div class=\"row\" id=\"row_1\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_dl_1\"><input id=\"element_dl_1\" name=\"element_dl_1\" class=\"element checkbox\" type=\"checkbox\" value=\"1\" />                                                                                                                                            \n\
+						Raw Filename</label>                                                                                                                                                                                                                                                                              \n\
+						<p class=\"guidelines\" for=\"element_dl_1\"><small>Set to <code>true</code>  to use the number only filename, e.g. \"197941.png\"<br>Set to <code>false</code> to use the full filename, e.g. \"197941__safe_rainbow+dash_artist-colon-luckydonald.png\"<br>Default is <code>false</code>.        \n\
+						</small></p>                                                                                                                                                                                                                                                                                      \n\
+				   </div>                                                                                                                                                                                                                                                                                                \n\
+				   <div class=\"row\" id=\"row_2\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_dl_2\"><input id=\"element_dl_2\" name=\"element_dl_2\" class=\"element checkbox\" type=\"checkbox\" value=\"1\" />                                                                                                                                            \n\
+						Rate on Download</label>                                                                                                                                                                                                                                                                          \n\
+					<p class=\"guidelines\" for=\"element_dl_2\"><small>Set to <code>true</code>  to enable the automatic like/fave* when downloading the image.<br>Set to <code>false</code> to disable the automatic like/fave* function.<br>*) Specify in next line.<br>Default is <code>true</code>.</small></p>   \n\
+				   </div>                                                                                                                                                                                                                                                                                                \n\
+				   <div class=\"row\" id=\"row_3\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_dl_3\"><input id=\"element_dl_3\" name=\"element_dl_3\" class=\"element checkbox\" type=\"checkbox\" value=\"1\" />                                                                                                                                            \n\
+						Vote-Up on Download</label>                                                                                                                                                                                                                                                                       \n\
+						<p class=\"guidelines\" for=\"element_dl_3\"><small> Set to <code>true</code> to automaticly Vote Up when downloading the image.<br>Set to <code>false</code> to automaticly Fave the image when downloading the image.<br>Default is <code>true</code>.                                            \n\
 						</small></p>                                                                                                                                                                                                                                                                                      \n\
 				   </div>                                                                                                                                                                                                                                                                                                \n\
 				</div>                                                                                                                                                                                                                                                                                                \n\
+			</div class=\"li\">                                                                                                                                                                                                                                                                                                     \n\
+			<div class=\"li\" id=\"li_move\" >                                                                                                                                                                                                                                                                                         \n\
+				<label class=\"description\" for=\"element_buttmove\">EasyButtons Mode</label>                                                                                                                                                                                                                                    \n\
+				<div class=\"grouper\" id=\"element_buttmove\">                                                                                                                                                                                                                                                              \n\
+				   <div class=\"row\" id=\"row_4\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_move_1\"><input id=\"element_move_1\" name=\"element_buttmove\" class=\"element radio\" type=\"radio\" value=\"1\" />                                                                                                                                                    \n\
+						Disable Button moving</label>                                                                                                                                                                                                                                                            \n\
+						<p class=\"guidelines\" for=\"element_move_1\"><small>Disable Button moving.</small></p>                                                                                                                                                                                                    \n\
+				   </div>                                                                                                                                                                                                                                                                                                \n\
+				   <div class=\"row\" id=\"row_5\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_move_2\"><input id=\"element_move_2\" name=\"element_buttmove\" class=\"element radio\" type=\"radio\" value=\"2\" />                                                                                                                                                    \n\
+						Laptop Mode 1 (default)</label>                                                                                                                                                                                                                                                                   \n\
+						<p class=\"guidelines\" for=\"element_move_2\"><small>Use the Laptop Mode, coming with little bigger buttons, which will be positioned fix in the upper left corner, and almost transparent uppon hover.</small></p>                                                                                 \n\
+				   </div>                                                                                                                                                                                                                                                                                                \n\
+				   <div class=\"row\" id=\"row_6\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_move_3\"><input id=\"element_move_3\" name=\"element_buttmove\" class=\"element radio\" type=\"radio\" value=\"3\" />                                                                                                                                                    \n\
+						Laptop Mode 2</label>                                                                                                                                                                                                                                                                             \n\
+						<p class=\"guidelines\" for=\"element_move_3\"><small>Use the Laptop Mode, like above, but the buttons will not move higher then the picture beginning.</small></p>                                                                                                                                  \n\
+					</div>                                                                                                                                                                                                                                                                                                \n\
+																																																																													 \n\
+																																																																													  \n\
+				</div>                                                                                                                                                                                                                                                                                                \n\
+			</div class=\"li\">                                                                                                                                                                                                                                                                                                 \n\
+			<div class=\"li\" id=\"li_buttpos\" >                                                                                                                                                                                                                                                                                         \n\
+				<label class=\"description\" for=\"element_buttpos\">EasyButtons Position</label>                                                                                                                                                                                                                                    \n\
+				<div class=\"grouper\" id=\"element_buttpos\">                                                                                                                                                                                                                                                              \n\
+				   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_buttpos_1\"><input id=\"element_buttpos_1\" name=\"element_buttpos\" class=\"element radio\" type=\"radio\" value=\"1\" />                                                                                                                                                    \n\
+						Automatic (Default)</label>                                                                                                                                                                                                                                                            \n\
+						<p class=\"guidelines\" for=\"element_buttpos_1\"><small>Button will positioned either top or bottom, depending on the mouse position.</small></p>                                                                                                                                                                                                    \n\
+				   </div>                                                                                                                                                                                                                                                                                                \n\
+				   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_buttpos_2\"><input id=\"element_buttpos_buttpos\" name=\"element_buttpos\" class=\"element radio\" type=\"radio\" value=\"2\" />                                                                                                                                                    \n\
+						Top</label>                                                                                                                                                                                                                                                                   \n\
+						<p class=\"guidelines\" for=\"element_buttpos_2\"><small>Buttons will be positioned fix in the upper left corner.</small></p>                                                                                 \n\
+				   </div>                                                                                                                                                                                                                                                                                                \n\
+				   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
+						<label class=\"choice\" for=\"element_buttpos_3\"><input id=\"element_buttpos_3\" name=\"element_buttpos\" class=\"element radio\" type=\"radio\" value=\"3\" />                                                                                                                                                    \n\
+						Bottom</label>                                                                                                                                                                                                                                                                             \n\
+						<p class=\"guidelines\" for=\"element_buttpos_3\"><small>Buttons will be positioned fix in the lower left corner.</small></p>                                                                                                                                  \n\
+					</div>                                                                                                                                                                                                                                                                                                \n\
+				</div>                                                                                                                                                                                                                                                                                                \n\
+			</div class=\"li\">  																																																									\n\
+			<div class=\"li\" id=\"li_style\" >                                                                                                                                                                                                                                                                                     \n\
+				<label class=\"description\" for=\"element_style\">Styles</label><br>                                                                                                                                                                                                                                         \n\
+				<div class=\"grouper\" id=\"element_style\">                                                                                                                                                                                                                                                              \n\
+					<div class=\"row\" id=\"row_7\">                                                                                                                                                                                                                                                              \n\
+						<div class=\"block\">                                                                                                                                                                                                                                                                             \n\
+							<label class=\"choice\" for=\"element_style_bgcolor_colorpicker\">Background color &nbsp; </label>                                                                                                                                                                                                                         \n\
+							<input id=\"element_style_bgcolor_colorpicker\" name=\"element_style_bgcolor_colorpicker\" class=\"element colorpicker\" type=\"color\" value=\"#FFFFFF\"/>                                                                                                                                                                                             \n\
+							<span class=\"colorresult\" id=\"element_style_bgcolor_colorresult\">#FFFFFF</span>                                                                                                                                                                                                                        \n\
+						</div>                                                                                                                                                                                                                                                                                            \n\
+						<p class=\"guidelines\" for=\"element_style_bgcolor_colorpicker\"><small>Set the backgrund color. <br> Default is <code>#FFFFFF</code>, but my recommendation is <code>#777777</code>.                                                                                                                                                                                    \n\
+						</small></p>                                                                                                                                                                                                                                                                                      \n\
+				   </div> \n\                                                                                                                                                                                                                                                                  \n\
+			   <div class=\"row\"> \n\
+					<label class=\"choice\" for=\"element_style_ads\"><input id=\"element_style_ads\" name=\"element_style_ads\" class=\"element checkbox\" type=\"checkbox\" value=\"1\" />	\n\
+					Hide Advertisements</label> \n\
+					<p class=\"guidelines\" for=\"element_style_ads\"><small>Set to <code>true</code>  to hide ads.<br>Set to <code>false</code> show them. <br>Default is <code>true</code>.	\n\
+					</small></p>   \n\
+				</div>			\n\
+			   <div class=\"row\">                                                                                                                                                                                                                                                              \n\
+					<div class=\"block\">                                                                                                                                                                                                                                                                             \n\
+							<label class=\"choice\" for=\"element_style_linkcolor_colorpicker\">Link color &nbsp; </label>                                                                                                                                                                                                                         \n\
+							<input id=\"element_style_linkcolor_colorpicker\" name=\"element_style_linkcolor_colorpicker\" class=\"element colorpicker\" type=\"color\" value=\"#57A4DB\"/>                                                                                                                                                                                             \n\
+							<span class=\"colorresult\" id=\"element_style_linkcolor_colorresult\">#57A4DB</span>                                                                                                                                                                                                                        \n\
+						</div>                                                                                                                                                                                                                                                                                            \n\
+						<p class=\"guidelines\" for=\"element_style_bgcolor_colorpicker\"><small>Set the link color. <br> Default is <code>#57A4DB</code>.                                                                                                                                                                                    \n\
+							</small></p>                                                                                                                                                                                                                                                                                      \n\
+				   </div>                                                                                                                                                                                                                                                                                                \n\
+				</div> 																																																																													\n\
 			</div class=\"li\">                                                                                                                                                                                                                                                                                                 \n\
 			<div class=\"li\" id=\"li_0\" >                                                                                                                                                                                                                                                                                     \n\
 				<input type=\"button\" id=\"prefResetButton\" class=\"element reset button\" value=\"Reset\"/>                                                                                                                                                                    \n\
@@ -1158,28 +1240,236 @@ function create_page_settings(){
 			<div class=\"li\" id=\"li_-1\" >                                                                                                                                                                                                                                                                                    \n\
 				<div id=\"successfield\" class=\"\"></div>                                                                                                                                                                                                                                                     \n\
 		   </div class=\"li\">                                                                                                                                                                                                                                                                                                         \n\
-		</div class=\"ul\">                                                                                                                                                                                                                                                                                                     \n\
+			</div class=\"ul\">                                                                                                                                                                                                                                                                                                     \n\
 		</div>                                                                                                                                                                                                                                                                                                    \n\
-		</div>                                                                                                                                                                                                                                                                                                    \n\
+	</div>                                                                                                                                                                                                                                                                                                    \n\
 	";
-	var settingsBody=document.createElement('div');
+	
+	
+	
+
+	
+	
+	//TODO: Move to real settings. pro: no layout problems.
+	//
+	
+	
+	//<a class="selected" data-tab="tab_derpiscript" href="#"></a>
+	var tabname = document.createElement('a');
+	tabname.setAttribute('data-tab', 'tab_derpiscript');
+	tabname.href = "#";
+	tabname.id = "tab_derpiscript_header";
+	tabname.innerHTML = "Derpiscript";
+	$class("tabs").appendChild(tabname);
+	
+	newSettingsHTML = '\
+			<p> <strong>Derpiscript Settings</strong></p> \n\
+			<div class="fieldlabel"> \n\
+				<div id=\"script_version\" class=\"version\">Script Version: <span id=\"script_version_field\" class=\"versionField\">Error Displaying Version...</span></div></p> \n\
+			</div> \n\
+			<p> <strong>Download</strong></p> \n\
+			<div class="field"> \n\
+				<label for="script_download_tagged">Tagged File name</label>\n\
+				<input name="script[download_tagged]" value="1" type="hidden"><input checked="checked" id="script_download_tagged" name="user[download_tagged]" value="1" type="checkbox"> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Set to <code>true</code> to use the full filename, e.g. "197941__safe_rainbow+dash_artist-colon-luckydonald.png"<br>Set to <code>false</code> to use the number only filename, e.g. "197941.png"<br>Default is <code>true</code>.  \n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_download_vote_enabled">Enable Vote-up on download</label> \n\
+				<input name="script[download_vote_enabled]" value="0" type="hidden"><input checked="checked" id="script_download_vote_enabled" name="script[download_vote_enabled]" value="1" type="checkbox"> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Set to <code>true</code> to enable the automatic like/fave when downloading the image.<br>Set to <code>false</code> to disable the automatic like/fave function.<br>Default is <code>true</code>. \n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_download_vote_fave">Fave, too.</label> \n\
+				<input name="user[download_vote_fave]" value="0" type="hidden"><input checked="checked" id="script_download_vote_fave" name="user[download_vote_fave]" value="1" type="checkbox"> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Set to <code>true</code> to automaticly Fave the image when downloading the image.<br>Set to <code>false</code> to automaticly Vote Up when downloading the image.<br>Default is <code>false</code>.   \n\
+			</div> \n\
+			\
+			<p> <strong>EasyButtons Mode</strong></p> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_buttons_mode_1">Disable</label> \n\
+				<input id="script_buttons_mode_1" name="script_buttons_mode" class="element radio" value="1" type="radio" /> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Disable Button moving. \n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_buttons_mode_2">Laptop Mode 1</label> \n\
+				<input id="script_buttons_mode_2" name="script_buttons_mode" class="element radio" value="2" type="radio" /> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Use the Laptop Mode, coming with little bigger buttons, which will be positioned fix in the upper/lower left corner (see position settings), and almost transparent uppon hover. <br>(default) \n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_buttons_mode_3">Laptop Mode 2</label> \n\
+				<input id="script_buttons_mode_3" name="script_buttons_mode" class="element radio" value="3" type="radio" /> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Laptop Mode, like above, but the buttons will not move higher then the picture beginning. \n\
+			</div> \n\
+\
+			<p> <strong>EasyButtons Position</strong></p> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_buttons_position_1"> Automatic</label> \n\
+				<input id="script_buttons_position_1" name="script_buttons_position" class="element radio" value="1" type="radio" /> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Button will positioned either top or bottom, depending on the mouse position. <br>(Default)\n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_buttons_position_2">Top</label> \n\
+				<input id="script_buttons_position_2" name="script_buttons_position" class="element radio" value="2" type="radio" /> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Buttons will be positioned fix in the upper left corner. \n\
+			</div> \n\
+			\
+			<div class="field"> \n\
+				<label for="script_buttons_position_3">Bottom</label> \n\
+				<input id="script_buttons_position_3" name="script_buttons_position" class="element radio" value="3" type="radio" /> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				LaptopButtons will be positioned fix in the lower left corner. \n\
+			</div> \n\
+	\
+			<p> <strong>Syles</strong></p> \n\
+			<div class="field"> \n\
+				<label for="script_styles_color_bg">Background Color</label> \n\
+				<input id="script_styles_color_bg" name="script_styles_color_bg" class="element colorpicker" value="#FFFFFF" type="color" /> \n\
+				<span class="colorresult" id="script_styles_color_bg_result">#4d4d4d</span>\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				 Set the backgrund color. <br> Default is <code>#FFFFFF</code>, but my recommendation is <code>#777777</code>.\n\
+			</div> \n\
+			<div class="field"> \n\
+				<label for="script_styles_color_link">Background Color</label> \n\
+				<input id="script_styles_color_link" name="script_styles_color_link" class="element colorpicker" value="#FFFFFF" type="color" /> \n\
+				<span class="colorresult" id="script_styles_color_link_result">#4d4d4d</span>\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Set the link color. <br> Default is <code>#57A4DB</code>. \n\
+			</div> \n\
+			<div class="field"> \n\
+				<label for="script_styles_hide_ads">Hide Advertisements</label> \n\
+				<input id="script_styles_hide_ads" value="0" type="checkbox"> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Set to <code>true</code>  to hide ads.<br>Set to <code>false</code> show them. <br>Default is <code>true</code>.\n\
+			</div> \n\
+			<div class="field"> \n\
+				<label for="script_save_reset"> </label> \n\
+				<input type=\"button\" id=\"script_save_reset\" class=\"element reset button\" value=\"Reset\"/>                                                                                                                                                                    \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				<p id=\"script_save_success\" class=\"\"></p>  \n\
+			</div> \n\
+	\
+	';
+	'\
+			<div class="field"> \n\
+				<label for="script_"></label> \n\
+				<input name="script[]" value="0" type="hidden"><input id="script_" name="script[]" value="1" type="checkbox"> \n\
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				 \n\
+			</div> \n\
+			<input type=\"button\" id=\"script_save_save\" class=\"element submit button\" value=\"Save\"/>                                                                                                                                                                    \n\
+	';
+	var tabContent = document.createElement("div");
+	tabContent.setAttribute('class','tab');
+	tabContent.setAttribute('id','tab_derpiscript');
+	tabContent.setAttribute('style','display: none;');
+	tabContent.innerHTML = newSettingsHTML;
+	$id("settingstable").appendChild(tabContent);
+	//from derpibooru
+	$('#settingstable .tabs #tab_derpiscript_header').click(function(){
+		$('#settingstable .tabs a').removeClass('selected');
+		$(this).addClass('selected');
+		$('#settingstable .tab').hide();
+		$('#settingstable #tab_derpiscript').show();
+		return false;
+	});
+	//end from derpibooru
+	
+	//$(":submit").listHandlers('*', console.info);
+	
+	
+	/*var settingsBody = document.createElement('div');
 	settingsBody.id = "settingsbody";
 	settingsBody.innerHTML= settingsHTML;
 	document.getElementsByTagName('body')[0].appendChild(settingsBody);
-
-	$_("versionField").innerHTML = scriptVersion; 
-	var buttonElem = $_("prefSubmitButton");
-	var resetElem = $_("prefResetButton");
-	var successfield =  $_("successfield");
+	*/
+	
+	$id("script_version_field").innerHTML = scriptVersion; 
+	//var buttonElem = $_("script_save_save");
+	var resetElem = $id("script_save_reset");
+	var successfield =  $id("script_save_success");
 	successfield.style.display = "hidden";
-	buttonElem.addEventListener('click', saveoptions, false);
+	versionbutton = $id("script_version");
+	versionbutton.addEventListener('click', showChangelog, false);
+	//.addEventListener('click', function(event){
+	//$(":submit").unbind();
+	$(":submit").click(function(event) {
+		if(!$('#settingstable .tabs #tab_derpiscript_header').hasClass('selected')){
+			return true;
+		}
+		event.preventDefault(); // cancel default behavior
+		saveoptions();
+		return false;
+	});
 	resetElem.addEventListener('click', resetoptions, false);
 
 
 	// Setting the init values for the Settings.
 
-	$_("element_dl_1").checked=GM_getValue('useRawFile',false);
-	$_("element_dl_2").checked=GM_getValue('rateOnDownload', true);
+	$id("script_download_tagged").checked = !GM_getValue('useRawFile',false);
+	$id("script_download_vote_enabled").checked = GM_getValue('rateOnDownload', true);
+	$id("script_download_vote_fave").checked=!GM_getValue('useVoteUp', false);
+
+	theButtonMode = GM_getValue('buttonMoveMode',1);
+	var buttonMoveModes = document.getElementsByName("script_buttons_mode");
+	for(var i = 0; i<buttonMoveModes.length; i++){
+		buttonMoveModes[i].checked = (buttonMoveModes[i].value==theButtonMode); //buttonMoveMode
+	}
+
+	thePosMode = GM_getValue('buttonPositionMode',0);
+	var buttonPosModes = document.getElementsByName("script_buttons_position");
+	for(var i = 0; i<buttonPosModes.length; i++){
+		buttonPosModes[i].checked = (buttonPosModes[i].value==thePosMode); //buttonMoveMode
+	}
+	bgColor = GM_getValue('backgroundColor');
+	linkColor = GM_getValue('linkColor');
+	contrastBgColor = getContrastYIQ_BW(bgColor);
+	setPickerColor("script_styles_color_bg", bgColor);
+	setPickerColor("script_styles_color_link", linkColor);
+	$id("script_styles_hide_ads").checked = GM_getValue('hideAds',true);
+	bgPicker = $id("script_styles_color_bg");
+	bgPicker.addEventListener("input", function(){
+		setColorOfResult("bg");
+	}, false);
+
+	linkPicker = $_("script_styles_color_link");
+	linkPicker.addEventListener("input", function(){
+		setColorOfResult("link");
+	}, false);
+
+	/*
+	// Setting the init values for the Settings.
+
+	$("script_download_tagged").checked=!GM_getValue('useRawFile',false);
+	$_("script_download_vote_enabled").checked=GM_getValue('rateOnDownload', true);
 	$_("element_dl_3").checked=GM_getValue('useVoteUp', true);
 
 	theButtonMode = GM_getValue('buttonMoveMode',1);
@@ -1198,6 +1488,7 @@ function create_page_settings(){
 	contrastBgColor = getContrastYIQ_BW(bgColor);
 	setPickerColor("bgcolor", bgColor);
 	setPickerColor("linkcolor", linkColor);
+	$_("element_style_ads").checked=GM_getValue('hideAds',true);
 	bgPicker = $_("element_style_bgcolor_colorpicker");
 	bgPicker.addEventListener('click', checkColor, false);
 	bgPicker.addEventListener('click', function(){
@@ -1214,54 +1505,55 @@ function create_page_settings(){
 	}, false);
 	versionbutton = $_("versionbutton");
 	versionbutton.addEventListener('click', showChangelog, false);
+	*/
 
 }
 
 function create_page_image(page){
 	css = "";
 	if(GM_getValue('buttonMoveMode') != 1) {
-	css +='\
-	#hoverboxthingie a {           \n\
-		opacity:0.3;               \n\
-		height: 20px;              \n\
-		width: 50px;               \n\
-		color: white;              \n\
-		vertical-align: center;    \n\
-		background-color: rgba(81, 158, 215, 0.3);\n\
-		border: 1px solid #519ED7; \n\
-	}                              \n\
-	#hoverboxthingie:hover a{      \n\
-		opacity:0.5;               \n\
-		color: black;              \n\
-		background-color: #519ED7; \n\
-		border: 1px solid transparent;           \n\
-	}                              \n\
-	#hoverboxthingie a:hover{      \n\
-		opacity:1;                 \n\
-		background-color: #dfd;    \n\
-	}                              \n\
-	#hoverboxthingie {             \n\
-		height: 20px;              \n\
-        position: fixed;           \n\
-        top: 10px;                 \n\
-        left: 10px;                \n\
-    }                                            \n\
-	#hoverboxthingie span {                         \n\
-        padding: 0;                            \n\
-	}                                            \n\
-	#hoverboxthingie, #hoverboxthingie a {       \n\
-		-webkit-transition:all 0.3s ease-in-out; \n\
-		   -moz-transition:all 0.3s ease-in-out; \n\
-		     -o-transition:all 0.3s ease-in-out; \n\
-		        transition:all 0.3s ease-in-out; \n\
-	}                                            \n\
-	';
+		css +='\
+		#hoverboxthingie a {           \n\
+			opacity:0.3;               \n\
+			height: 20px;              \n\
+			width: 50px;               \n\
+			color: white;              \n\
+			vertical-align: center;    \n\
+			background-color: rgba(81, 158, 215, 0.3);\n\
+			border: 1px solid #519ED7; \n\
+		}                              \n\
+		#hoverboxthingie:hover a{      \n\
+			opacity:0.5;               \n\
+			color: black;              \n\
+			background-color: #519ED7; \n\
+			border: 1px solid transparent;           \n\
+		}                              \n\
+		#hoverboxthingie a:hover{      \n\
+			opacity:1;                 \n\
+			background-color: #dfd;    \n\
+		}                              \n\
+		#hoverboxthingie {             \n\
+			height: 20px;              \n\
+			position: fixed;           \n\
+			top: 10px;                 \n\
+			left: 10px;                \n\
+		}                                            \n\
+		#hoverboxthingie span {                         \n\
+			padding: 0;                            \n\
+		}                                            \n\
+		#hoverboxthingie, #hoverboxthingie a {       \n\
+			-webkit-transition:all 0.3s ease-in-out; \n\
+			   -moz-transition:all 0.3s ease-in-out; \n\
+				 -o-transition:all 0.3s ease-in-out; \n\
+					transition:all 0.3s ease-in-out; \n\
+		}                                            \n\
+		';
 	}else{
-    css+='\
-    #hoverboxthingie span {                      \n\
-        padding: 2px;                            \n\
-	}                                            \n\
-	';
+		css+='\
+		#hoverboxthingie span {                      \n\
+			padding: 2px;                            \n\
+		}                                            \n\
+		';
 	}
 	css +='		                                         \n\
 		                                         \n\
@@ -1270,6 +1562,9 @@ function create_page_image(page){
 		text-align: center;                      \n\
         padding: 2px;                            \n\
 	}                                            \n\
+	#imagespns{                        												\n\
+		display: ' + (GM_getValue('hideAds')?'none':'block') + ';                   \n\
+	}																				\n\
 	';
 	applyStyle(css,"hoverboxthingie");
 	//get Links ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1485,9 +1780,9 @@ function create_page_all() {
 			 -o-animation: pusate 1s ease-in-out infinite	\n\
 				animation: pusate 1s ease-in-out infinite	\n\
 	}          												\n';
-	applyStyle(css, "allpages");
+	applyStyle(css, "allpage");
 	css ='\
-	.image_description, .image_description H3, #imagespns, #comments{               \n\
+	.image_description, .image_description H3, #imagespns, comment_live_preview, #comments{\n\
 		color: black;                                                             	\n\
 	}                                                                             	\n\
 	body{                        													\n\
@@ -1504,7 +1799,74 @@ function create_page_all() {
 		color: '+(getContrastYIQ(GM_getValue('linkColor')) ? darkerColor(GM_getValue('linkColor'), .3) : lighterColor(GM_getValue('linkColor'), .3))+';                                                             \n\
 	}                                                                             \n\
 	';
-	applyStyle(css, "custom-allpage");
+	applyStyle(css, "custom-color-allpage");
+	css = '\
+	span.tag.tag-user-watched{ \n\
+		color:#333; \n\
+		background:#6A9F93; \n\
+		border-color:#3F7E70 \n\
+	} \n\
+	span.tag.tag-user-watched a { \n\
+		color:#307163 \n\
+	} \n\
+	span.tag.tag-user-spoilered{ \n\
+		color:#333; \n\
+		background:#F6A7A5; \n\
+		border-color:#C36562; \n\
+	} \n\
+	span.tag.tag-user-spoilered a { \n\
+		color:#AF4E4B; \n\
+	} \n\
+	span.tag.tag-user-hidden{ \n\
+		color:#333; \n\
+		background:#C785A9; \n\
+		border-color:#9E4F7A; \n\
+	} \n\
+	span.tag.tag-user-hidden a { \n\
+		color:#8E3D69; \n\
+	} \n\
+	.tag-span-unwatched { \n\
+		color:#82AD2B; \n\
+		background:#CDE69A; \n\
+		border-color:#9ECF3C; \n\
+	} \n\
+	.tag-span-watched { \n\
+		color:#307163; \n\
+		background:#6A9F93; \n\
+		border-color:#3F7E70!important; \n\
+	} \n\
+	.tag-span-spoilered { 		\
+		color:#AF4E4B; 			\
+		background:#F6A7A5; 	\
+		border-color:#C36562!important; 	\
+	} 							\
+	.tag-span-hidden { \n\
+		color:#8E3D69; \n\
+		background:#C785A9; \n\
+		border-color:#9E4F7A!important; \n\
+	} \n\
+	.dropdown_icon{ 		\
+		padding-left:5px; \
+		padding-right:0; \
+	} 							\
+	.dropdown_container.tag{ 		\
+		padding-right:0px; \
+	} 							\
+	.dropdown_icon a span{ 		\
+		border-left: 1px solid; 		\
+		padding-top: 5px;			\
+		padding-bottom: 5px;			\
+		padding-left: 2px;			\
+		padding-right: 2px;			\
+	} 							\
+	';
+	applyStyle(css, "tags-allpage");
+	/*$(".tag-list").find('.tag-span-unwatched').each(function(){
+		$(this).html($.trim($(this).html()));
+	});*/
+	$(".tag-list .dropdown_icon a ").find('span').each(function(){
+		$(this).html($.trim($(this).html()));
+	});
 	
 }
 
@@ -1521,9 +1883,9 @@ function create_page_all() {
 
 
 function setColorOfResult(name){
-	backgroundColor = $_("element_style_" + name + "_colorpicker").value;
+	backgroundColor = $_("script_styles_color_" + name).value;
 	//setPickerColor(name, backgroundColor);
-	var resultElement = $_("element_style_" + name + "_colorresult");
+	var resultElement = $_("script_styles_color_" + name + "_result");
     resultElement.innerHTML = backgroundColor; //backgroundColor
     resultElement.style.backgroundColor = backgroundColor; //backgroundColor
     resultElement.style.color = getContrastYIQ_BW(backgroundColor); //backgroundColor
@@ -1532,49 +1894,43 @@ function setColorOfResult(name){
  * saves the settings.
  */ 
 function saveoptions(){
-    var successfield =  $_("successfield");
-    var elem = $_("settingsbox");
-    var eins_1 = $_("element_dl_1"); //useRawFile
-    GM_setValue('useRawFile',eins_1.checked);
-    var eins_2 = $_("element_dl_2"); //rateOnDownload  
-    GM_setValue('rateOnDownload',eins_2.checked);
-    var eins_3 = $_("element_dl_3"); //useVoteUp
-    GM_setValue('useVoteUp',eins_3.checked);
+    var successfield =  $id("script_save_success");
+    GM_setValue('useRawFile',!$id("script_download_tagged").checked);
+    GM_setValue('rateOnDownload',$id("script_download_vote_enabled").checked);  //rateOnDownload
+    GM_setValue('useVoteUp',!$id("script_download_vote_fave").checked); //useVoteUp
     
     
     theButtonMode = 0;
-    var buttonMoveModes = document.getElementsByName("element_buttmove");
+    var buttonMoveModes = document.getElementsByName("script_buttons_mode");
     for(var i = 0; i<buttonMoveModes.length; i++){
         if (buttonMoveModes[i].checked==true){
             theButtonMode =  buttonMoveModes[i].value; //buttonMoveMode
         }
     }
 	thePosMode = 0;
-    var buttonPosModes = document.getElementsByName("element_buttpos");
+    var buttonPosModes = document.getElementsByName("script_buttons_position");
     for(var i = 0; i<buttonPosModes.length; i++){
         if (buttonPosModes[i].checked==true){
             thePosMode =  buttonPosModes[i].value; //buttonPosMode
         }
     }
-
-
-    GM_setValue('backgroundColor',$_("element_style_bgcolor_colorpicker").value);//TODO: validate color as real color.
-	GM_setValue('linkColor', $_("element_style_linkcolor_colorpicker").value);//TODO: validate color as real color.
     GM_setValue('buttonMoveMode',theButtonMode);
-	GM_setValue('buttonPositionMode',thePosMode);
+	GM_setValue('buttonPositionMode',thePosMode);	
+	GM_setValue('backgroundColor',$id("script_styles_color_bg").value);//TODO: validate color as real color.
+	GM_setValue('linkColor', $id("script_styles_color_link").value);//TODO: validate color as real color.
+	GM_setValue('hideAds',$id("script_styles_hide_ads").checked); // hideAds
 
-    var theArray = GM_listValues();
-    //alert("{"+theArray +"}");
+
     successfield.innerHTML = "Successfully saved. Please <a href='javascript:location.reload();' onclick='location.reload();'>refresh</a> the page.";
     successfield.style.display = "block";
     successfield.style.color = "green";
-    successfield.style.backgroundColor = "lightgreen";//drei_color;
+    successfield.style.backgroundColor = "lightgreen";
 }
 /**
- * resetts the settings.
+ * resets the settings.
  */ 
 function resetoptions(){
-    var successfield =  $_("successfield");
+    var successfield =  $id("script_save_success");
 
     var useRawFile = false; 
    	var rateOnDownload = true;
@@ -1583,21 +1939,24 @@ function resetoptions(){
     var buttonPosMode = 1;    
     var backgroundColor = "#FFFFFF";
 	var linkColor = "#57A4DB";
-	$_("element_dl_1").checked = useRawFile;
-	$_("element_dl_2").checked = rateOnDownload;
-	$_("element_dl_3").checked = useVoteUp;
+	var hideAds = true;
+	
+	$id("script_download_tagged").checked = !useRawFile;
+	$id("script_download_vote_enabled").checked = rateOnDownload;
+	$id("script_download_vote_fave").checked = !useVoteUp;
 
-	var buttonMoveModes = document.getElementsByName("element_buttmove");
+	var buttonMoveModes = document.getElementsByName("script_buttons_mode");
 	for(var i = 0; i<buttonMoveModes.length; i++){
 		buttonMoveModes[i].checked = (buttonMoveModes[i].value==buttonMoveMode); //buttonMoveMode
 	}
-	var buttonPosModes = document.getElementsByName("element_buttpos");
+	var buttonPosModes = document.getElementsByName("script_buttons_position");
 	for(var i = 0; i<buttonPosModes.length; i++){
 		buttonPosModes[i].checked = (buttonPosModes[i].value==buttonPosMode); //buttonPosMode
 	}
-	setPickerColor("bgcolor", backgroundColor);
-	setPickerColor("linkcolor", linkColor);
-	
+	setPickerColor("script_styles_color_bg", backgroundColor);
+	setPickerColor("script_styles_color_link", linkColor);
+	$id("script_styles_hide_ads").checked = hideAds;
+
     successfield.innerHTML = "Did reset the settings, but <b>not</b> saved yet!";
     successfield.style.display = "block";
     successfield.style.color = "gray";
@@ -1605,9 +1964,9 @@ function resetoptions(){
 }
 function setPickerColor(name,color){
 	contrastColor = getContrastYIQ_BW(backgroundColor);
-	colorPickerElement = $_("element_style_" + name + "_colorpicker");
+	colorPickerElement = $id(name);
 	colorPickerElement.value = color; //backgroundColor
-	colorResultElement = $_("element_style_" + name + "_colorresult");
+	colorResultElement = $id(name + "_result");
 	colorResultElement.innerHTML = color; //backgroundColor
 	colorResultElement.style.backgroundColor = color; //backgroundColor
 	colorResultElement.style.color = contrastColor; //backgroundColor
