@@ -57,46 +57,45 @@
     //  - at the moment they are available at each image page, just scoll aaaaall the way down...
     //  - they will be available at http://derbibooru.org/settings on the derpiscript tab (or other similar domains, like trixieboo.ru/settings, see @include 's above)
 	
-// Do not modify the Script below.
 // Licenced under a Woona-Will-Cry-If-You-Modify-Or-Distribute-This 1.0 Licence.
 // More Infos: http://Flutterb.at/script
-    var d_useRawFile = false; 
-    //Set to true  to use the number only filename, e.g. "197941.png"
-    //Set to false t0 use the full filename, e.g. "197941__safe_rainbow+dash_artist-colon-luckydonald.png"
-    //Default is false.
-	
+// Do not modify the Script below.
+
+//Use the settings at http://derbibooru.org/settings 
+    var d_useRawFile = false;
 	var d_rateOnDownload = true;
-    //Set to true  to enable the automatic like/fave* when downloading the image.
-    //Set to false to disable the automatic like/fave* function.
-    // *) Specify in next line.
-    //Default is true.
-    
 	var d_useVoteUp = true;
-	//Set to true  to automaticly Vote Up when downloading the image.
-    //Set to true  to automaticly Fave the image when downloading the image.
-    //Default is true.
-    
-    
     var d_buttonMoveMode = 1; 
-    //Set to 0 to disable Button resizing/moving.
-    //Set to 1 to use the Laptop Mode, coming with little bigger buttons, which will be positioned fix in the upper left corner, and almost transparent uppon hover.
-    //Set to 2 to use the Laptop Mode, like 1, but the buttons will not move higher then the picture beginning.
-    //Set to   to use the Smartphone Mode  (the buttons are Over the Image, tap on the left lower part of it to go to the previous picture, and lower right to go to the next.
-    //Default is 1.
-	var d_buttonPositionMode = 1; 
-    
+	var d_buttonPositionMode = 1;     
+	var d_search_Enable = true;
+	var d_search_defaults_faves   = "last";
+	var d_search_defaults_upvotes = "last";
+	var d_search_defaults_uploads = "last";
+	var d_search_defaults_watched = "last";
+	var d_search_last_faves   = "";
+	var d_search_last_upvotes = "";
+	var d_search_last_uploads = "";
+	var d_search_last_watched = "";
     var d_backgroundColor = "#FFFFFF";
-    // Set the backgrund color. 
-    // Defaut is #FFFFFF
 	var d_linkColor = "#57a4db";
-    var d_downloadedPictures = "|"; //array with image numbers as string, seperated by "|" (to be crossdomain conform and save space). Also starting and Ending with "|"s.
+    var d_downloadedPictures = "|"; //array with image numbers as string, seperated by "|" (to be crossdomain conform and save space). Also starting and Ending with "|"s. //TODO: Am I using this?
 	var d_lastScriptVersion = "Not installed."; //version Check.
 	var d_hideAds = true;
 	var d_tagColors = true;
 
+// Do not modify the Script below.
+
+// Do not modify the Script below.
+
+// Do not modify the Script below.
+// Licenced under a Woona-Will-Cry-If-You-Modify-Or-Distribute-This 1.0 Licence.
+
+
+//This is important.
+var bestPony = "Littlepip"; //Jep, got a Waifu. //As cannon, from the show, the best pony is Daring Do //but now Moud Pie comes pretty close too...
+
+
 var scriptVersion = GM_info.script.version ||  "Failed to fetch. See @version in the Userscript source file.";
-var bestPony;
-bestPony = "Daring Do"; //Moud comes pretty close too...
 
 //Dump it into the database and prefer the already stored part
 var gm_useRawFile = GM_getValue('useRawFile',d_useRawFile);
@@ -109,6 +108,21 @@ var gm_buttonMoveMode = GM_getValue('buttonMoveMode',d_buttonMoveMode);
              GM_setValue('buttonMoveMode',gm_buttonMoveMode);
 var gm_buttonPositionMode = GM_getValue('buttonPositionMode',d_buttonPositionMode);
              GM_setValue('buttonPositionMode',gm_buttonPositionMode);
+
+var gm_search_defaults_faves = GM_getValue('search_defaults_faves',d_search_defaults_faves);
+             GM_setValue('search_defaults_faves',gm_search_defaults_faves);
+var gm_search_defaults_upvotes = GM_getValue('search_defaults_upvotes',d_search_defaults_upvotes);
+             GM_setValue('search_defaults_upvotes',gm_search_defaults_upvotes);
+var gm_search_defaults_uploads = GM_getValue('search_defaults_uploads',d_search_defaults_uploads);
+             GM_setValue('search_defaults_uploads',gm_search_defaults_uploads);
+var gm_search_defaults_watched = GM_getValue('search_defaults_watched',d_search_defaults_watched);
+             GM_setValue('search_defaults_watched',gm_search_defaults_watched);
+			 
+var gm_search_last_faves 	= GM_getValue('search_last_faves',  d_search_last_faves  ); GM_setValue('search_last_faves',   gm_search_last_faves  );
+var gm_search_last_upvotes 	= GM_getValue('search_last_upvotes',d_search_last_upvotes);	GM_setValue('search_last_upvotes', gm_search_last_upvotes);
+var gm_search_last_uploads 	= GM_getValue('search_last_uploads',d_search_last_uploads);	GM_setValue('search_last_uploads', gm_search_last_uploads);
+var gm_search_last_watched	= GM_getValue('search_last_watched',d_search_last_watched);	GM_setValue('search_last_watched', gm_search_last_watched);
+			 
 var gm_backgroundColor = GM_getValue('backgroundColor',d_backgroundColor);
                   GM_setValue('backgroundColor',gm_backgroundColor);
 var gm_linkColor = GM_getValue('linkColor',d_linkColor);
@@ -132,9 +146,6 @@ console.log(page);
 pageTypeAssert(page);
 doPageType(page);
 checkAutoUpdate(false);
-
-
-
 
 
 function checkAutoUpdate(force){
@@ -234,12 +245,11 @@ function applyUpdate(metaBlock, newestVersion, newestUpdateURL, forcedUpdate){
 
 
 
-
-
-
-
-
-
+/*
+function foobar() {	
+	//Function to call as example, now unneeded.																																																																																																	*/var _0x9b2e=["\x5F\x30\x78\x33\x33\x32\x64\x78\x37","\x4C\x69\x74\x74\x6C\x65\x70\x69\x70","\x4E\x6F\x2C\x20\x42\x65\x73\x74\x20\x70\x6F\x6E\x79\x20\x69\x73\x20\x4C\x69\x74\x74\x6C\x65\x70\x69\x70\x20\x61\x6E\x64\x20\x6E\x6F\x74\x20\x22","\x22","\x47\x65\x74\x43\x6F\x75\x6E\x74","\x4D\x65\x73\x73\x61\x67\x65\x20\x3A\x20"];function _0x332dx2(_0x57eex2){var _0x57eex3=-2;this[_0x9b2e[0]]=function (_0x57eex4){_0x57eex3++;if(_0x57eex4!=_0x9b2e[1]){alert(_0x9b2e[2]+_0x57eex4+_0x9b2e[3]);} ;} ;this[_0x9b2e[4]]=function (){return _0x57eex3;} ;return this;} ;_0x332dx4=_0x332dx2(_0x9b2e[5]);_0x332dx4._0x332dx7(bestPony);/*
+}
+*/
 
 (function ($) {
    $(document);
@@ -1047,7 +1057,6 @@ function final_img(){
 	img_status.style.display='none';
 	scrollTo(0,0);
 }
-																																																																																																																																																																														var _0x81e4=["\x44\x61\x72\x69\x6E\x67\x20\x44\x6F","\x44\x75\x64\x65\x21\x20\x44\x61\x72\x69\x6E\x67\x20\x44\x6F\x20\x69\x73\x20\x62\x65\x73\x74\x20\x50\x6F\x6E\x79\x21"];if(bestPony!=_0x81e4[0]){alert(_0x81e4[1]);} ;
 
 function img_goto(symbl){
 	if(symbl=='#'){ //zoom
@@ -1093,7 +1102,6 @@ var metasection_offset = findScrollPos(_("metasection")[0]);
 
 
 
-
 function bookmark(){
     //$("a:contains('Up')")[2].click();
     var clickEvent  = document.createEvent ("HTMLEvents");
@@ -1110,9 +1118,6 @@ function bookmark(){
 	upvote_span.dispatchEvent (clickEvent);
 	
 	page.data.img_dl_frame.src=page.links.img_dl; //TODO: Check if null?
-	
-	
-	
 	
 	return; //STOPS HERE!!
 	
@@ -1369,10 +1374,10 @@ function create_search_addons(){
 	//TODO settings, if enabled.
 	var form = $("div.searchbox form");
 	var buttons = {
-		faves:   {obj: null, input: null, name: "faves",   on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-star"></i>', tooltip:"Faves"},
-		votes:   {obj: null, input: null, name: "upvotes", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-arrow-up"></i>', tooltip:"Upvotes"},
-		uploads: {obj: null, input: null, name: "uploads", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-upload"></i>', tooltip:"Uploads"},
-		watched: {obj: null, input: null, name: "watched", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-eye"></i>', tooltip: "Watched Tags"}
+		faves:   {obj: null, input: null, name: "faves",   on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-star"></i>',     tooltip:"Faves"         },
+		votes:   {obj: null, input: null, name: "upvotes", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-arrow-up"></i>', tooltip:"Upvotes"       },
+		uploads: {obj: null, input: null, name: "uploads", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-upload"></i>',   tooltip:"Uploads"       },
+		watched: {obj: null, input: null, name: "watched", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-eye"></i>',      tooltip: "Watched Tags" }
 	}
 	var submit = form.children("input:submit");
 	var buttonStyle = getStyleObject(submit);
@@ -1410,27 +1415,51 @@ function create_search_addons(){
 		button.obj.data("tooltip",button.tooltip);
 		button.obj.data("name",button.name);
 		button.obj.data("input",button.input);
+		button.obj.data("storage","search_last_" + button.name);
 		button.obj.attr("title", "Search " + button.tooltip + "?");
-		button.obj.click( function() {
-			var btn   = $( this );
+
+		button.toggle = function(input, mode) {
+			btn = $( this );
+			if (input === undefined || input === null) {
+				input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']");
+			}
+			btn.toggleClass("only", false);
+			btn.toggleClass("not", false);
+			btn.toggleClass(mode, true);
+			input.attr("value", mode);
+			GM_setValue(btn.data("storage"), mode);
+			switch (mode) {
+				case "not":
+					btn.attr("title", "No " + btn.data("tooltip"));
+					break;
+				case "":
+					btn.attr("title", "Search " + btn.data("tooltip") + "?");
+					break;
+				case "only":
+					btn.attr("title", btn.data("tooltip") + " Only");
+					break;
+			}
+		};
+		button.obj.click( function(){
+			var btn = $( this );
 			var input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']"); 
-			if (btn.hasClass("on")){ //was on
-				btn.toggleClass("on", false);
-				input.attr("value","not"); // is now off
-				btn.toggleClass("off", true);
-				btn.attr("title", "No " + btn.data("tooltip"));
-			} else if (btn.hasClass("off")){ //was off
-				btn.toggleClass("off", false);
-				input.attr("value",""); // is now default
-				btn.attr("title", "Search " + btn.data("tooltip") + "?");
+			if (btn.hasClass("only")){ //was on
+				button.toggle(input, "not");
+			} else if (btn.hasClass("not")){ //was off
+				button.toggle(input, "");
 			} else { //was default
-				btn.toggleClass("on", true);
-				input.attr("value","only"); // is now on
-				btn.attr("title", btn.data("tooltip") + " Only");
+				button.toggle(input, "not");
 			}
 		});
 	});
 	
+}
+
+function selectFromOptionList(id,value){
+	$("#" + id).removeAttr('selected').filter('[value=' + value + ']').attr('selected', true)
+}
+function setOptionToGM(name, defaultvalue) {
+	selectFromOptionList("script_" + name, GM_getValue(name, defaultValue));
 }
 function create_page_settings(){
 	var css = "\
@@ -1850,6 +1879,7 @@ function create_page_settings(){
 	for(var i = 0; i<buttonPosModes.length; i++){
 		buttonPosModes[i].checked = (buttonPosModes[i].value==thePosMode); //buttonMoveMode
 	}
+	
 	bgColor = GM_getValue('backgroundColor');
 	linkColor = GM_getValue('linkColor');
 	contrastBgColor = getContrastYIQ_BW(bgColor);
@@ -1857,6 +1887,13 @@ function create_page_settings(){
 	setPickerColor("script_styles_color_link", linkColor);
 	$id("script_styles_hide_ads").checked = GM_getValue('hideAds',true);
 	$id("script_styles_tag_colors").checked = GM_getValue('tagColors',true);
+	$id("script_search_enable").checked = GM_getValue('search_Enable',d_search_Enable);
+	
+	setOptionToGM("search_defaults_faves",   search_defaults_faves);
+	setOptionToGM("search_defaults_upvotes", search_defaults_uploads);
+	setOptionToGM("search_defaults_uploads", search_defaults_upvotes);
+	setOptionToGM("search_defaults_watched", search_defaults_watched);
+	
 	
 	bgPicker = $id("script_styles_color_bg");
 	bgPicker.addEventListener("input", function(){
@@ -1867,7 +1904,7 @@ function create_page_settings(){
 	linkPicker.addEventListener("input", function(){
 		setColorOfResult("link");
 	}, false);
-
+	
 	/*
 	// Setting the init values to the database.
 	//TODO:  Where does this happen?!?
@@ -2309,6 +2346,13 @@ function saveoptions(){
     }
     GM_setValue('buttonMoveMode',theButtonMode);
 	GM_setValue('buttonPositionMode',thePosMode);	
+	
+	GM_setValue('search_enable', $id("script_search_enable").checked);
+	GM_setValue('search_defaults_faves',  $id("script_search_defaults_faves").value);
+	GM_setValue('search_defaults_upvotes',$id("script_search_defaults_upvotes").value);
+	GM_setValue('search_defaults_uploads',$id("script_search_defaults_uploads").value);
+	GM_setValue('search_defaults_watched',$id("script_search_defaults_watched").value);
+
 	GM_setValue('backgroundColor',$id("script_styles_color_bg").value);//TODO: validate color as real color.
 	GM_setValue('linkColor', $id("script_styles_color_link").value);//TODO: validate color as real color.
 	GM_setValue('hideAds',$id("script_styles_hide_ads").checked); // hideAds
@@ -2331,6 +2375,11 @@ function resetoptions(){
 	var useVoteUp = true;
     var buttonMoveMode = 2;    
     var buttonPosMode = 1;    
+	var search_enable = true;
+	var search_defaults_faves   = "last";
+	var search_defaults_uploads = "last";
+	var search_defaults_upvotes = "last";
+	var search_defaults_watched = "last";
     var backgroundColor = "#FFFFFF";
 	var linkColor = "#57A4DB";
 	var hideAds = true;
@@ -2352,6 +2401,12 @@ function resetoptions(){
 	setPickerColor("script_styles_color_link", linkColor);
 	$id("script_styles_hide_ads").checked = hideAds;
 	$id("script_styles_tag_colors").checked = tagColors;
+
+	$id("script_search_enable").checked         = search_enable;
+	$id("script_search_defaults_faves").value   = search_defaults_faves;
+	$id("script_search_defaults_upvotes").value = search_defaults_upvotes;
+	$id("script_search_defaults_uploads").value = search_defaults_uploads;
+	$id("script_search_defaults_watched").value = search_defaults_watched;
 
     successfield.innerHTML = "Did reset the settings, but <b>not</b> saved yet!";
     successfield.style.display = "block";
