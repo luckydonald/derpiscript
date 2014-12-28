@@ -1418,6 +1418,8 @@ function create_search_addons(){
 		button.obj.data("storage","search_last_" + button.name);
 		button.obj.attr("title", "Search " + button.tooltip + "?");
 		//Default settings
+		//TODO: Settings to value!
+		//TODO: from search query
 		button.obj.toggleClass(GM_getValue("search_last_" + button.name,""), true);
 		//Toggle Functionality
 		button.obj.toggleMode = function(input, mode) {
