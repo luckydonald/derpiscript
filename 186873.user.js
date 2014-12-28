@@ -31,9 +31,9 @@
 // @updateURL      https://resources.flutterb.at/userscript/186873.user.js
 // @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
 // @version        0.1.4.2
-// @history        0.1.4.2 added "Better Search". This is adding the search options on the botom of a search (search only in / exclude   faves, upvotes, uploaded, whatched) to the search bar on top with an handy toggle button.
+// @history        0.1.4.2 added "Better Search". This is adding the search options on the botom of a search (search only in / exclude   faves, upvotes, uploaded, whatched) to the search bar on top with an handy toggle button. You can define the default values in settings.
 // @history        0.1.4.1 image list now highlights voted/faved images more visibility.
-// @history        0.1.4.0 changed tag highlighting to be less annoying : ) | fixed preferences. | fixed emergency hide button.
+// @history        0.1.4.0 changed tag highlighting to be less annoying : ) | fixed preferences. | fixed emergency hide button. | broke Mobile (or non Greasemonkey) support  :(
 // @history        0.1.3.9 notification, if new update is available. | updated jquery from  1.2.6 to 1.11.1 (wow) | changelog now use state-of-the-art css! | added feedback if forced version check has no new version.
 // @history        0.1.3.8 setting now attached to normal derpibooru settings tabs. Click "Derpiscript" tab to access the settings. | added different tag coloring for watched, spoilered and hidden tags. | added rudimentary error display when script Version detections randomly dies. Error seems to be a Greasemonkey related bug. (Error: Greasemonkey access violation: unsafeWindow cannot call GM_*).
 // @history        0.1.3.7 fixed likeButton, now working again. | settings moved to derpibooru settings page. | changelog will now be displayed on version change. | now parsing the @history tags to have changelog in one place. | clicking on version string in settings now opens changelog window too.
