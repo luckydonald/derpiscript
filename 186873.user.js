@@ -1475,9 +1475,12 @@ function create_search_addons(){
 }
 
 function selectFromOptionList(id,value){
-	$("#" + id).removeAttr('selected').filter('[value=' + value + ']').attr('selected', true)
+	var objs = $("#" + id + " option");
+	objs.each(function() {
+		$(this).prop("selected", $(this).val() == value);
+	})
 }
-function setOptionToGM(name, defaultvalue) {
+function setOptionToGM(name, defaultValue) {
 	selectFromOptionList("script_" + name, GM_getValue(name, defaultValue));
 }
 function create_page_settings(){
@@ -1908,10 +1911,10 @@ function create_page_settings(){
 	$id("script_styles_tag_colors").checked = GM_getValue('tagColors',true);
 	$id("script_search_enable").checked = GM_getValue('search_Enable',d_search_Enable);
 	
-	setOptionToGM("search_defaults_faves",   search_defaults_faves);
-	setOptionToGM("search_defaults_upvotes", search_defaults_uploads);
-	setOptionToGM("search_defaults_uploads", search_defaults_upvotes);
-	setOptionToGM("search_defaults_watched", search_defaults_watched);
+	setOptionToGM("search_defaults_faves",   d_search_defaults_faves);
+	setOptionToGM("search_defaults_upvotes", d_search_defaults_uploads);
+	setOptionToGM("search_defaults_uploads", d_search_defaults_upvotes);
+	setOptionToGM("search_defaults_watched", d_search_defaults_watched);
 	
 	
 	bgPicker = $id("script_styles_color_bg");
