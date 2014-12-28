@@ -136,9 +136,7 @@ var gm_hideAds = GM_getValue('hideAds',d_hideAds);
 var gm_tagColors = GM_getValue('tagColors',d_tagColors);
 		GM_setValue('tagColors',gm_tagColors);
 
-//getPageType(window.location.pathname);
 
-				  //return;
 var changelog_bg;
 doVersionCheck(gm_lastScriptVersion, scriptVersion);
 var page = getPageType(window.location.pathname);
@@ -279,7 +277,7 @@ function doVersionCheck(lastVersion, newVersion){
 	}else{}
 }
 function showChangelog(){
-	showChangelogVersion(lastScriptVersion, scriptVersion, GM_info.scriptMetaStr, "", false, -1);
+	showChangelogVersion(gm_lastScriptVersion, scriptVersion, GM_info.scriptMetaStr, "", false, -1);
 }
 
 function showChangelogVersion(lastVersion, newVersion, infostring, updateURL, isUpdate, updateDiff) {
@@ -1641,7 +1639,11 @@ function create_page_settings(){
 		text-decoration: underline;													\n\
 		cursor:pointer;																\n\
 		cursor:hand;																\n\
-	}                              													\n\
+	} \
+	#tab_derpiscript .element  { \
+		margin-top: 8px; \
+		margin-left: 5px; \
+	} \
 	";
 	applyStyle(css, "settings");
 	
@@ -2185,7 +2187,6 @@ function create_page_image(page){
 			}
 		}else{
 		   console.log('Pressed unegistered key "' + e.keyCode + '" with char code "' + e.charCode + '".');
-		   alert('Pressed unegistered key "' + e.keyCode + '" with char code "' + e.charCode + '".');
 		}
 	}, false);
 	create_search_addons();
