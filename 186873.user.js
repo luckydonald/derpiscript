@@ -1417,10 +1417,10 @@ function create_search_addons(){
 		button.obj.data("input",button.input);
 		button.obj.data("storage","search_last_" + button.name);
 		button.obj.attr("title", "Search " + button.tooltip + "?");
-		console.log( $(this)); //
-
+		//Default settings
+		button.obj.toggleClass(GM_getValue("search_last_" + button.name,""), true);
+		//Toggle Functionality
 		button.obj.toggleMode = function(input, mode) {
-			alert("hua4");
 			btn = $( this );
 			if (input === undefined || input === null) {
 				input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']");
@@ -1444,6 +1444,7 @@ function create_search_addons(){
 			}
 		};
 		button.obj.data("toggle", button.obj.toggleMode); // hack to make toggleMode available
+		//Change on click, circle around the 3 modes("", "only", "not").
 		button.obj.click( function(){
 			var btn = $( this );
 			var input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']"); 
