@@ -2232,7 +2232,7 @@ function create_page_all() {
 	}          												\n';
 	applyStyle(css, "allpage");
 	css ='\
-	.image_description, .image_description H3, #imagespns, comment_live_preview, #comments{\n\
+	.image_description, .image_description H3, #imagespns, comment_live_preview{\n\
 		color: black;                                                             	\n\
 	}                                                                             	\n\
 	body{                        													\n\
