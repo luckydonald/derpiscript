@@ -1388,19 +1388,19 @@ function create_search_addons(){
 			border-right: 1px solid #5673AB !important; \
 			font-size: 10px; \
 		} \
-		div.searchbox form .addon_button.on { \
+		div.searchbox form .addon_button.only { \
 			color:#264827 !important; \
 			background-color:#57A559 !important; \
 		} \
-		div.searchbox form .addon_button.on:hover { \
+		div.searchbox form .addon_button.only:hover { \
 			color:#57A559 !important; \
 			background-color:#264827 !important; \
 		} \
-		div.searchbox form .addon_button.off { \
+		div.searchbox form .addon_button.not { \
 			color:#482627 !important; \
 			background-color:#A55759 !important; \
 		} \
-		div.searchbox form .addon_button.off:hover { \
+		div.searchbox form .addon_button.not:hover { \
 			color:#A55759 !important; \
 			background-color:#482627 !important; \
 		} \
@@ -1417,8 +1417,10 @@ function create_search_addons(){
 		button.obj.data("input",button.input);
 		button.obj.data("storage","search_last_" + button.name);
 		button.obj.attr("title", "Search " + button.tooltip + "?");
+		console.log( $(this)); //
 
-		button.toggle = function(input, mode) {
+		button.obj.toggleMode = function(input, mode) {
+			alert("hua4");
 			btn = $( this );
 			if (input === undefined || input === null) {
 				input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']");
@@ -1428,6 +1430,7 @@ function create_search_addons(){
 			btn.toggleClass(mode, true);
 			input.attr("value", mode);
 			GM_setValue(btn.data("storage"), mode);
+
 			switch (mode) {
 				case "not":
 					btn.attr("title", "No " + btn.data("tooltip"));
@@ -1440,15 +1443,17 @@ function create_search_addons(){
 					break;
 			}
 		};
+		button.obj.data("toggle", button.obj.toggleMode); // hack to make toggleMode available
 		button.obj.click( function(){
 			var btn = $( this );
 			var input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']"); 
+			btn.toggleMode = btn.data("toggle"); // hack to make toggleMode available
 			if (btn.hasClass("only")){ //was on
-				button.toggle(input, "not");
+				btn.toggleMode(input, "not");
 			} else if (btn.hasClass("not")){ //was off
-				button.toggle(input, "");
+				btn.toggleMode(input, "");
 			} else { //was default
-				button.toggle(input, "not");
+				btn.toggleMode(input, "not");
 			}
 		});
 	});
