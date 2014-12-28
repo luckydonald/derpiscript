@@ -67,7 +67,7 @@
 	var d_useVoteUp = true;
     var d_buttonMoveMode = 1; 
 	var d_buttonPositionMode = 1;     
-	var d_search_Enable = true;
+	var d_search_enabled = true;
 	var d_search_defaults_faves   = "last";
 	var d_search_defaults_upvotes = "last";
 	var d_search_defaults_uploads = "last";
@@ -97,44 +97,30 @@ var bestPony = "Littlepip"; //Jep, got a Waifu. //As cannon, from the show, the 
 
 var scriptVersion = GM_info.script.version ||  "Failed to fetch. See @version in the Userscript source file.";
 
-//Dump it into the database and prefer the already stored part
-var gm_useRawFile = GM_getValue('useRawFile',d_useRawFile);
-             GM_setValue('useRawFile',gm_useRawFile);
-var gm_rateOnDownload = GM_getValue('rateOnDownload',d_rateOnDownload);
-                 GM_setValue('rateOnDownload',gm_rateOnDownload);
-var gm_useVoteUp = GM_getValue('useVoteUp',d_useVoteUp);
-            GM_setValue('useVoteUp',gm_useVoteUp);
-var gm_buttonMoveMode = GM_getValue('buttonMoveMode',d_buttonMoveMode);
-             GM_setValue('buttonMoveMode',gm_buttonMoveMode);
-var gm_buttonPositionMode = GM_getValue('buttonPositionMode',d_buttonPositionMode);
-             GM_setValue('buttonPositionMode',gm_buttonPositionMode);
+//Load database and apply defaults if not found.
+var gm_useRawFile              = GM_getValue('useRawFile',              d_useRawFile             ); GM_setValue('useRawFile',                gm_useRawFile              );
+var gm_rateOnDownload          = GM_getValue('rateOnDownload',          d_rateOnDownload         ); GM_setValue('rateOnDownload',            gm_rateOnDownload          );
+var gm_useVoteUp               = GM_getValue('useVoteUp',               d_useVoteUp              ); GM_setValue('useVoteUp',                 gm_useVoteUp               );
 
-var gm_search_defaults_faves = GM_getValue('search_defaults_faves',d_search_defaults_faves);
-             GM_setValue('search_defaults_faves',gm_search_defaults_faves);
-var gm_search_defaults_upvotes = GM_getValue('search_defaults_upvotes',d_search_defaults_upvotes);
-             GM_setValue('search_defaults_upvotes',gm_search_defaults_upvotes);
-var gm_search_defaults_uploads = GM_getValue('search_defaults_uploads',d_search_defaults_uploads);
-             GM_setValue('search_defaults_uploads',gm_search_defaults_uploads);
-var gm_search_defaults_watched = GM_getValue('search_defaults_watched',d_search_defaults_watched);
-             GM_setValue('search_defaults_watched',gm_search_defaults_watched);
-			 
-var gm_search_last_faves 	= GM_getValue('search_last_faves',  d_search_last_faves  ); GM_setValue('search_last_faves',   gm_search_last_faves  );
-var gm_search_last_upvotes 	= GM_getValue('search_last_upvotes',d_search_last_upvotes);	GM_setValue('search_last_upvotes', gm_search_last_upvotes);
-var gm_search_last_uploads 	= GM_getValue('search_last_uploads',d_search_last_uploads);	GM_setValue('search_last_uploads', gm_search_last_uploads);
-var gm_search_last_watched	= GM_getValue('search_last_watched',d_search_last_watched);	GM_setValue('search_last_watched', gm_search_last_watched);
-			 
-var gm_backgroundColor = GM_getValue('backgroundColor',d_backgroundColor);
-                  GM_setValue('backgroundColor',gm_backgroundColor);
-var gm_linkColor = GM_getValue('linkColor',d_linkColor);
-                  GM_setValue('linkColor',gm_linkColor);
-var gm_downloadedPictures = GM_getValue('downloadedPictures',d_downloadedPictures);
-                  GM_setValue('downloadedPictures',gm_downloadedPictures);
-var gm_lastScriptVersion = GM_getValue('lastScriptVersion',d_lastScriptVersion);
-                  GM_setValue('lastScriptVersion',gm_lastScriptVersion);
-var gm_hideAds = GM_getValue('hideAds',d_hideAds);
-                  GM_setValue('hideAds',gm_hideAds);
-var gm_tagColors = GM_getValue('tagColors',d_tagColors);
-		GM_setValue('tagColors',gm_tagColors);
+var gm_buttonMoveMode          = GM_getValue('buttonMoveMode',          d_buttonMoveMode         ); GM_setValue('buttonMoveMode',            gm_buttonMoveMode          );
+var gm_buttonPositionMode      = GM_getValue('buttonPositionMode',      d_buttonPositionMode     ); GM_setValue('buttonPositionMode',        gm_buttonPositionMode      );
+                                                                                                                                                                        
+var gm_search_enabled          = GM_getValue('search_enabled',          d_search_enabled         );   GM_setValue('search_enabled',          gm_search_enabled          );
+var gm_search_defaults_faves   = GM_getValue('search_defaults_faves',   d_search_defaults_faves  );   GM_setValue('search_defaults_faves',   gm_search_defaults_faves   );
+var gm_search_defaults_upvotes = GM_getValue('search_defaults_upvotes', d_search_defaults_upvotes);   GM_setValue('search_defaults_upvotes', gm_search_defaults_upvotes );
+var gm_search_defaults_uploads = GM_getValue('search_defaults_uploads', d_search_defaults_uploads);   GM_setValue('search_defaults_uploads', gm_search_defaults_uploads );
+var gm_search_defaults_watched = GM_getValue('search_defaults_watched', d_search_defaults_watched);   GM_setValue('search_defaults_watched', gm_search_defaults_watched );		 
+var gm_search_last_faves 	   = GM_getValue('search_last_faves',       d_search_last_faves      );   GM_setValue('search_last_faves',       gm_search_last_faves       );
+var gm_search_last_upvotes 	   = GM_getValue('search_last_upvotes',     d_search_last_upvotes    );	  GM_setValue('search_last_upvotes',     gm_search_last_upvotes     );
+var gm_search_last_uploads     = GM_getValue('search_last_uploads',     d_search_last_uploads    );	  GM_setValue('search_last_uploads',     gm_search_last_uploads     );
+var gm_search_last_watched     = GM_getValue('search_last_watched',     d_search_last_watched    );	  GM_setValue('search_last_watched',     gm_search_last_watched     );
+			                                                                                                                                                            
+var gm_backgroundColor         = GM_getValue('backgroundColor',         d_backgroundColor        ); GM_setValue('backgroundColor',           gm_backgroundColor         );
+var gm_linkColor               = GM_getValue('linkColor',               d_linkColor              ); GM_setValue('linkColor',                 gm_linkColor               ); 
+var gm_downloadedPictures      = GM_getValue('downloadedPictures',      d_downloadedPictures     ); GM_setValue('downloadedPictures',        gm_downloadedPictures      );
+var gm_lastScriptVersion       = GM_getValue('lastScriptVersion',       d_lastScriptVersion      ); GM_setValue('lastScriptVersion',         gm_lastScriptVersion       );
+var gm_hideAds                 = GM_getValue('hideAds',                 d_hideAds                ); GM_setValue('hideAds',                   gm_hideAds                 );
+var gm_tagColors               = GM_getValue('tagColors',               d_tagColors              ); GM_setValue('tagColors',                 gm_tagColors               );
 
 
 var changelog_bg;
@@ -1399,7 +1385,9 @@ function create_search_addons(){
 			color: " + buttonStyle.color + "; \
 			background-color: " + buttonStyle.backgroundColor + "; \
 			border-right: 1px solid #5673AB !important; \
-			font-size: 10px; \
+			font-size: 10px;  \
+			padding-left: 3px !important; \
+			padding-right: 3px !important; \
 		} \
 		div.searchbox form .addon_button.only { \
 			color:#264827 !important; \
@@ -1768,8 +1756,8 @@ function create_page_settings(){
 			\
 			\
 			<div class="field"> \n\
-				<label for="script_search_enable">Enable</label> \n\
-				<input id="script_search_enable" name="script_search_enable" class="element checkbox" value="#FFFFFF" type="checkbox" /> \n\
+				<label for="script_search_enabled">Enable</label> \n\
+				<input id="script_search_enabled" name="script_search_enabled" class="element checkbox" value="#FFFFFF" type="checkbox" /> \n\
 				</div> \n\
 				<div class="fieldlabel"> \n\
 					The search bar will have toogles to filter the results of your query with your faves, upvotes, uploads and watched images. You will toggle between only searching images with this attributes (green), without them (red) or ignoring it (no color).<br>\n\
@@ -1907,30 +1895,30 @@ function create_page_settings(){
 
 	// Setting the init values for the Settings.
 
-	$id("script_download_tagged").checked = !GM_getValue('useRawFile',false);
-	$id("script_download_vote_enabled").checked = GM_getValue('rateOnDownload', true);
-	$id("script_download_vote_fave").checked=!GM_getValue('useVoteUp', false);
+	$id("script_download_tagged").checked = !GM_getValue('useRawFile',d_useRawFile);
+	$id("script_download_vote_enabled").checked = GM_getValue('rateOnDownload', d_rateOnDownload);
+	$id("script_download_vote_fave").checked=!GM_getValue('useVoteUp', d_useVoteUp);
 
-	theButtonMode = GM_getValue('buttonMoveMode',1);
+	theButtonMode = GM_getValue('buttonMoveMode',d_buttonPositionMode);
 	var buttonMoveModes = document.getElementsByName("script_buttons_mode");
 	for(var i = 0; i<buttonMoveModes.length; i++){
 		buttonMoveModes[i].checked = (buttonMoveModes[i].value==theButtonMode); //buttonMoveMode
 	}
 
-	thePosMode = GM_getValue('buttonPositionMode',0);
+	thePosMode = GM_getValue('buttonPositionMode',d_buttonPositionMode);
 	var buttonPosModes = document.getElementsByName("script_buttons_position");
 	for(var i = 0; i<buttonPosModes.length; i++){
 		buttonPosModes[i].checked = (buttonPosModes[i].value==thePosMode); //buttonMoveMode
 	}
 	
-	bgColor = GM_getValue('backgroundColor');
-	linkColor = GM_getValue('linkColor');
+	bgColor = GM_getValue('backgroundColor',d_backgroundColor);
+	linkColor = GM_getValue('linkColor',d_linkColor);
 	contrastBgColor = getContrastYIQ_BW(bgColor);
 	setPickerColor("script_styles_color_bg", bgColor);
 	setPickerColor("script_styles_color_link", linkColor);
-	$id("script_styles_hide_ads").checked = GM_getValue('hideAds',true);
-	$id("script_styles_tag_colors").checked = GM_getValue('tagColors',true);
-	$id("script_search_enable").checked = GM_getValue('search_Enable',d_search_Enable);
+	$id("script_styles_hide_ads").checked = GM_getValue('hideAds',d_hideAds);
+	$id("script_styles_tag_colors").checked = GM_getValue('tagColors',d_tagColors);
+	$id("script_search_enabled").checked = GM_getValue('search_enabled',d_search_enabled);
 	
 	setOptionToGM("search_defaults_faves",   d_search_defaults_faves);
 	setOptionToGM("search_defaults_upvotes", d_search_defaults_uploads);
@@ -2338,7 +2326,9 @@ function create_page_all() {
 	$(".tag.dropdown_container .dropdown_icon a ").find('span').each(function(){
 		$(this).html($.trim($(this).html()));
 	});
-	create_search_addons(); //all pages has a search field. (except maybe error pages on server derp, like 503) 
+	if(gm_search_enabled) {
+		create_search_addons(); //all pages has a search field. (except maybe error pages on server derp, like 503) 
+	}
 }
 
 
@@ -2388,7 +2378,7 @@ function saveoptions(){
     GM_setValue('buttonMoveMode',theButtonMode);
 	GM_setValue('buttonPositionMode',thePosMode);	
 	
-	GM_setValue('search_enable', $id("script_search_enable").checked);
+	GM_setValue('search_enabled', $id("script_search_enabled").checked);
 	GM_setValue('search_defaults_faves',  $id("script_search_defaults_faves").value);
 	GM_setValue('search_defaults_upvotes',$id("script_search_defaults_upvotes").value);
 	GM_setValue('search_defaults_uploads',$id("script_search_defaults_uploads").value);
