@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name           Derpibooru - Enhanced Navigation
+// @name           Derpiscript - Derpibooru Enhanced
 // @namespace      luckydonald - admin@flutterb.at - http://flutterb.at/
 // @author         luckydonald
-// @description    Complete Script With enhanced Laptop mode, download'n'fave, keyboard shortcuts etc. 
+// @description    Derpibooru as it should be (laptop mode, download'n'fave, keyboard shortcuts, better search etc.) 
 // @grant          GM_getValue
 // @grant          GM_setValue
 // @include        https://derpibooru.org/*
@@ -31,7 +31,7 @@
 // @updateURL      https://resources.flutterb.at/userscript/186873.user.js
 // @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
 // @version        0.1.4.2
-// @history        0.1.4.2 added "Better Search". This is adding the search options on the botom of a search (search only in / exclude   faves, upvotes, uploaded, whatched) to the search bar on top with an handy toggle button. You can define the default values in settings.
+// @history        0.1.4.2 fixed color in comment section not compatible with dark theme | added "Better Search". This is adding the search options on the botom of a search (search only in / exclude   faves, upvotes, uploaded, whatched) to the search bar on top with an handy toggle button. You can define the default values in settings. | updated updater to force a download (and omit firefox's cached version) to make sure we don't check a old version floating on our local disk instead.
 // @history        0.1.4.1 image list now highlights voted/faved images more visibility.
 // @history        0.1.4.0 changed tag highlighting to be less annoying : ) | fixed preferences. | fixed emergency hide button. | broke Mobile (or non Greasemonkey) support  :(
 // @history        0.1.3.9 notification, if new update is available. | updated jquery from  1.2.6 to 1.11.1 (wow) | changelog now use state-of-the-art css! | added feedback if forced version check has no new version.
@@ -136,6 +136,7 @@ function checkAutoUpdate(force){
 	var updateInterval = GM_getValue('updates_intervall', 60*60*24); // in seconds. //Minute*Hour*Day = 1 Day 
 	var checkForUpdates = GM_getValue('updates_do', true);
     if (force || checkForUpdates == true) {
+		console.log("derpiscript: checking for updates.");
 		var lastCheck = GM_getValue('updates_last', 0);
 		var d = new Date();
 		var currentTime = Math.round(d.getTime() / 1000); // Unix time in seconds 
@@ -157,8 +158,8 @@ function checkAutoUpdate(force){
 					if(line.indexOf("@updateURL") > -1){
 						line = line.substr(line.indexOf("@updateURL") + 10);
 						line = line.trim();
-						updateURL = line;
-						console.log("old@updateURL:" + line);
+						updateURL = line + (line.indexOf("?")<0 ? "?" : "&") + "update=" + currentTime; // omit cache by appending current timestamp, to still have the ending use // + "&suffix=.user.js"
+						console.log("old@updateURL:" + updateURL);
 					}
 				}
 			}
@@ -202,7 +203,7 @@ function checkAutoUpdate(force){
 								line = line.substr(line.indexOf("@version") + 8);
 								line = line.trim();
 								newestVersion = line;
-								console.log("new@version:" + line);
+								console.log("new@version:" + newestVersion);
 							}
 							metaBlock[metaBlock.length] = lines[i];
 						}
@@ -218,12 +219,13 @@ function checkAutoUpdate(force){
 
 function applyUpdate(metaBlock, newestVersion, newestUpdateURL, forcedUpdate){
 	console.log({meta: metaBlock, newest: newestVersion, url:newestUpdateURL});
-	var diff = versionCompare(scriptVersion, newestVersion, null);
+	var diff = versionCompare(scriptVersion, newestVersion, null); //TODO what am I doing here?
+	console.log("The version difference to the server is " + diff);
 	if(forcedUpdate){
-		showChangelogVersion(scriptVersion, newestVersion, metaBlock.join("\n"), newestUpdateURL, true, true);
+		showChangelogVersion(scriptVersion, newestVersion, metaBlock.join("\n"), newestUpdateURL, true, diff);
 	}
-	if(diff != NaN && diff<0 && newestVersion != GM_getValue('updates_ignoreVersionNumber', "Version 0.404.n.o.t.f.o.u.n.d")) {
-			showChangelogVersion(scriptVersion, newestVersion, metaBlock.join("\n"), newestUpdateURL, true, 1);
+	if(diff != NaN && diff<0 && newestVersion != GM_getValue('updates_ignoreVersionNumber', "Version 0.4.0.4.n.o.t.f.o.u.n.d")) {
+			showChangelogVersion(scriptVersion, newestVersion, metaBlock.join("\n"), newestUpdateURL, true, diff);
 	}
 }
 
@@ -367,19 +369,20 @@ function showChangelogVersion(lastVersion, newVersion, infostring, updateURL, is
 		<div id = \"changelog-bg\"></div>\
 		<div id = \"changelog-box\"> \
 		";
-	if (isNothingNew){
+	if (isNothingNew){ //newer or same as the server
 		html+="\
 			<div class=\"title\">Yee-haw!<br />You are Up to date.</div> \																																																																										\n\
 			Current Version: <b>" + lastVersion + "</b><br />\
 		";
-		if (updateDiff != 0){
+		if (updateDiff > 0){ //newer as the server
 			html+="\
 				In fact the Server has an older version:<br>\
 				Server Version: <b>" + newVersion + "</b><br />\
 			";
 		}
+		console.log("Update version Difference is "+ updateDiff);
 		html+="<input class=\"update-link\" type=\"button\" id=\"update-check-button\" value=\"Check for Update\" data-unused-data-tag=\"empty\" />";
-	}else{
+	}else{ //older as the server
 		if (isUpdate){
 			html+="\
 				<div class=\"title\">A new version of Derpiscript is available.</div> \																																																																										\n\
