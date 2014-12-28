@@ -1418,15 +1418,15 @@ function create_search_addons(){
 		button.obj.data("storage","search_last_" + button.name);
 		button.obj.attr("title", "Search " + button.tooltip + "?");
 		//Default settings
-		//TODO: Settings to value!
 		//TODO: from search query
-		button.obj.toggleClass(GM_getValue("search_last_" + button.name,""), true);
+		
+		
 		//Toggle Functionality
-		button.obj.toggleMode = function(input, mode) {
+		button.obj.toggleMode = function(mode,input) {
 			btn = $( this );
-			if (input === undefined || input === null) {
-				input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']");
-			}
+			input = (typeof input === "undefined") ? 
+				btn.parent().children("input:hidden[name='" + btn.data("name") + "']") /* if input not set, use this as default. */
+			 : input;  // this still is a inline if
 			btn.toggleClass("only", false);
 			btn.toggleClass("not", false);
 			btn.toggleClass(mode, true);
@@ -1445,18 +1445,29 @@ function create_search_addons(){
 					break;
 			}
 		};
-		button.obj.data("toggle", button.obj.toggleMode); // hack to make toggleMode available
+		button.obj.data("toggle", button.obj.toggleMode); // hack to make toggleMode available in onclick.
+		
+		
+		//If setting don't force something, use last value.
+		if ((forced_value = GM_getValue("search_defaults_" + button.name, "last")) == "last") {
+			//Use last one.
+			button.obj.toggleMode(GM_getValue("search_last_" + button.name,""));
+		} else {
+			button.obj.toggleMode(forced_value);
+		}
+			
+			
 		//Change on click, circle around the 3 modes("", "only", "not").
 		button.obj.click( function(){
 			var btn = $( this );
 			var input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']"); 
-			btn.toggleMode = btn.data("toggle"); // hack to make toggleMode available
+			btn.toggleMode = btn.data("toggle"); // hack to make toggleMode available here.
 			if (btn.hasClass("only")){ //was on
-				btn.toggleMode(input, "not");
+				btn.toggleMode("not");
 			} else if (btn.hasClass("not")){ //was off
-				btn.toggleMode(input, "");
+				btn.toggleMode("");
 			} else { //was default
-				btn.toggleMode(input, "not");
+				btn.toggleMode("only");
 			}
 		});
 	});
