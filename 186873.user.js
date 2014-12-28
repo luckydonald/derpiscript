@@ -490,7 +490,7 @@ function doPageType(p){
  * {type:"album", emergencyHide:false, isImage:false, isAlbum: true, url:url, albumType: "tag",  tag: <the tag>, matcharray: m};
  *
  *
- * .isSearch means, we have a serch box at the bottom, with advanced search settings 			(Settings like the "Search Faves?", "Search Upvotes?", "Search My Uploads?", "Search Watched Tags?", "Minimum Score", "Maximum Score", "Sort By", "Sort Direction", etc.) 
+ * .isSearch means, we have a serch box at the bottom, with advanced search settings, and maybe a search query.			(Settings like the "Search Faves?", "Search Upvotes?", "Search My Uploads?", "Search Watched Tags?", "Minimum Score", "Maximum Score", "Sort By", "Sort Direction", etc.) 
  * 
  **/
 
@@ -604,10 +604,27 @@ function removeDownloaded(pictureNumberAsString){
 	
 }
 
+// Library:
 // Libraries:
 // Libraries:
 // Libraries:
 
+// http://stackoverflow.com/a/21903119
+// Get url parameter jquery
+// Be careful, ; is a legal delimeter which this doesn't account for.
+function getUrlParameter(sParam)
+{
+    var sPageURL = window.location.search.substring(1);
+    var sURLVariables = sPageURL.split('&');
+    for (var i = 0; i < sURLVariables.length; i++) 
+    {
+        var sParameterName = sURLVariables[i].split('=');
+        if (sParameterName[0] == sParam) 
+        {
+            return sParameterName[1];
+        }
+    }
+}
 
 //TODO: support "beta" 
 //  http://stackoverflow.com/a/6832721
@@ -1344,9 +1361,7 @@ function create_page_album(){
 	/*$(".imageinfo a.vote_up_link.voted_up").parents('div.image').addClass("voted_up");
 	$("div.imageinfo span a.vote_up_link.voted_up").parents('div.image').addClass("voted_up");
 	console.log($("div.image div.imageinfo span a.voted_up"));
-	$(".imageinfo a.fave_link.faved").parents('div.image').addClass("faved");*/
-	create_search_addons();
-	
+	$(".imageinfo a.fave_link.faved").parents('div.image').addClass("faved");*/	
 }
 function page_album_highlighter(jNode){
 	console.log(jNode);
@@ -1415,8 +1430,6 @@ function create_search_addons(){
 		button.obj.data("input",button.input);
 		button.obj.data("storage","search_last_" + button.name);
 		button.obj.attr("title", "Search " + button.tooltip + "?");
-		//Default settings
-		//TODO: from search query
 		
 		
 		//Toggle Functionality
@@ -1445,16 +1458,21 @@ function create_search_addons(){
 		};
 		button.obj.data("toggle", button.obj.toggleMode); // hack to make toggleMode available in onclick.
 		
-		
-		//If setting don't force something, use last value.
-		if ((forced_value = GM_getValue("search_defaults_" + button.name, "last")) == "last") {
-			//Use last one.
-			button.obj.toggleMode(GM_getValue("search_last_" + button.name,""));
+		//Default settings, on load
+		//
+		//Get settings from search query, this will override the defaults from the settings.
+		if ((parameter_value = getUrlParameter(button.name))) {
+			button.obj.toggleMode(parameter_value);
 		} else {
-			button.obj.toggleMode(forced_value);
+			//If setting don't force something, use last value.
+			if ((forced_value = GM_getValue("search_defaults_" + button.name, "last")) == "last") {
+				//Use last one.
+				button.obj.toggleMode(GM_getValue("search_last_" + button.name,""));
+			} else {
+				button.obj.toggleMode(forced_value);
+			}
 		}
-			
-			
+					
 		//Change on click, circle around the 3 modes("", "only", "not").
 		button.obj.click( function(){
 			var btn = $( this );
@@ -1482,6 +1500,7 @@ function setOptionToGM(name, defaultValue) {
 	selectFromOptionList("script_" + name, GM_getValue(name, defaultValue));
 }
 function create_page_settings(){
+	//TODO: is all this #settingsbody stuff still neaded?
 	var css = "\
 	#settingsbody {                                                               \n\
 		margin: 0px auto;                                                         \n\
@@ -2189,7 +2208,6 @@ function create_page_image(page){
 		   console.log('Pressed unegistered key "' + e.keyCode + '" with char code "' + e.charCode + '".');
 		}
 	}, false);
-	create_search_addons();
 }
 function create_page_all() {
 	var css='\
@@ -2320,7 +2338,7 @@ function create_page_all() {
 	$(".tag.dropdown_container .dropdown_icon a ").find('span').each(function(){
 		$(this).html($.trim($(this).html()));
 	});
-	
+	create_search_addons(); //all pages has a search field. (except maybe error pages on server derp, like 503) 
 }
 
 
