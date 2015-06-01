@@ -29,6 +29,7 @@
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.js
 // @require        https://gist.github.com/raw/2625891/waitForKeyElements.js
 // @updateURL      https://resources.flutterb.at/userscript/186873.user.js
+// @preferedURL    https://flutterb.at/derpiscript-update
 // @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
 // @version        0.1.4.2
 // @history        0.1.4.2 fixed color in comment section not compatible with dark theme | added "Better Search". This is adding the search options on the botom of a search (search only in / exclude   faves, upvotes, uploaded, whatched) to the search bar on top with an handy toggle button. You can define the default values in settings. | updated updater to force a download (and omit firefox's cached version) to make sure we don't check a old version floating on our local disk instead.
@@ -158,17 +159,27 @@ function checkAutoUpdate(force){
 					if(line.indexOf("@updateURL") > -1){
 						line = line.substr(line.indexOf("@updateURL") + 10);
 						line = line.trim();
-						updateURL = line + (line.indexOf("?")<0 ? "?" : "&") + "update=" + currentTime; // omit cache by appending current timestamp, to still have the ending use // + "&suffix=.user.js"
+						updateURL = line + (line.indexOf("?")<0 ? "?" : "&") + "update=" + currentTime + "&version=" + scriptVersion; // omit cache by appending current timestamp, to still have the ending use // + "&suffix=.user.js"
 						console.log("old@updateURL:" + updateURL);
+					} else if( line.indexOf("@preferedURL") > -1){
+						line = line.substr(line.indexOf("@updateURL") + 10);
+						line = line.trim();
+						updateURL = line;// + (line.indexOf("?")<0 ? "?" : "&") + "update=" + currentTime + "&version=" + scriptVersion + "&suffix=.user.js"; // omit cache by appending current timestamp, and &suffix to still have the required ending.
+						console.log("@preferedURL: " + updateURL);
+						break;
 					}
 				}
 			}
 			GM_xmlhttpRequest({
 			method:"GET",
+			headers:    {
+				referer:  "http://flutterb.at/derpiscript/"+ scriptVersion + "/" + location.href;
+			},
 			url:updateURL,
 			onload:function(details) {
 				if (details.status == 200) {
 					console.log("old@version:" + GM_info.script.version);
+					console.log("url", updateURL," ", "details",details);
 					var metaBlock = new Array();
 					var infostring = details.responseText;
 					var newestVersion = "";
