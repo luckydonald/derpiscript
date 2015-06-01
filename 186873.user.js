@@ -31,7 +31,8 @@
 // @updateURL      https://resources.flutterb.at/userscript/186873.user.js
 // @preferedURL    https://flutterb.at/derpiscript-update
 // @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
-// @version        0.1.4.2
+// @version        0.1.4.3 
+// @history        0.1.4.3 quick fix for derpibooru's UI update.
 // @history        0.1.4.2 fixed color in comment section not compatible with dark theme | added "Better Search". This is adding the search options on the botom of a search (search only in / exclude   faves, upvotes, uploaded, whatched) to the search bar on top with an handy toggle button. You can define the default values in settings. | updated updater to force a download (and omit firefox's cached version) to make sure we don't check a old version floating on our local disk instead.
 // @history        0.1.4.1 image list now highlights voted/faved images more visibility.
 // @history        0.1.4.0 changed tag highlighting to be less annoying : ) | fixed preferences. | fixed emergency hide button. | broke Mobile (or non Greasemonkey) support  :(
@@ -173,7 +174,7 @@ function checkAutoUpdate(force){
 			GM_xmlhttpRequest({
 			method:"GET",
 			headers:    {
-				referer:  "http://flutterb.at/derpiscript/"+ scriptVersion + "/" + location.href;
+				referer:  "https://flutterb.at/derpiscript/"+ scriptVersion + "/" + location.href
 			},
 			url:updateURL,
 			onload:function(details) {
@@ -716,6 +717,7 @@ function getStyleObject(element){
 		var camelize = function(a,b){
 			return b.toUpperCase();
 		}
+		console.log("dom",dom, element);
 		style = window.getComputedStyle(dom, null);
 		for(var i=0;i<style.length;i++){
 			var prop = style[i];
@@ -1133,51 +1135,6 @@ function bookmark(){
 	upvote_span.dispatchEvent (clickEvent);
 	
 	page.data.img_dl_frame.src=page.links.img_dl; //TODO: Check if null?
-	
-	return; //STOPS HERE!!
-	
-	//TODO: Implement usable.
-
-	var is_already_voted = appendDownloaded();//implement with button, to force redownload.
-    if(!is_already_voted){
-		if((gm_useVoteUp ? upvote_span.getAttribute("class").contains("voted_up") : upvote_span.getAttribute("class").contains("faved") )) { //if was not in db, but is voted
-			//do nothing
-			return;
-		} //else (if is not in db, and is not voted
-        upvote_span.dispatchEvent (clickEvent);
-        page.data.img_dl_frame.src=download_img_src;
-
-    }
-	
-    
-    return;
-	
-	//old function,
-	//TODO: Remove
-   $('div[id^="vote_"]').each(function(){
-        if($(this).attr("caption")=="Up"){
-            $(this).dispatchEvent (clickEvent)
-	   }
-	   alert($(this).attr("caption"));
-    }
-    );
-
-    //$_("vote_frame").src=up_vote_page_href;
-    return;
-	//even older function,
-	//TODO: Remove too.
-    var marks=bookmark_getUrlList(false);
-		var bookmark_text = GM_getValue("bookmarks");
-		var can_add=true;
-		for (var i = 0; i < marks.length; i++) {
-		  var each = marks[i];
-		  if(each == full_img_src){
-		      can_add=false;
-		      return;
-		  }
-		}
-		bookmark_text+='[||]'+img_img.src;
-		GM_setValue("bookmarks", bookmark_text);	
 }
 function bookmark_getUrlList(use_cached_list){
 	if(use_cached_list && bookmark_list != null){
@@ -1392,8 +1349,10 @@ function create_search_addons(){
 		uploads: {obj: null, input: null, name: "uploads", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-upload"></i>',   tooltip:"Uploads"       },
 		watched: {obj: null, input: null, name: "watched", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-eye"></i>',      tooltip: "Watched Tags" }
 	}
-	var submit = form.children("input:submit");
+	var submit = form.children("a[title=Search]");
+	console.log("eep");
 	var buttonStyle = getStyleObject(submit);
+	console.log("uup");
 	var css = "\
 		div.searchbox form .addon_button{ \
 			color: " + buttonStyle.color + "; \
