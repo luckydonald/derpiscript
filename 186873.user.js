@@ -1125,9 +1125,10 @@ function bookmark(){
 		//do nothing
 		return;
 	} //else (if is not in db, and is not voted)
-	upvote_span.click(); 	//with jQuery
 	page.data.img_dl_frame.src=page.links.img_dl; //TODO: Check if null?
+	upvote_span[0].click();
 }
+
 function bookmark_getUrlList(use_cached_list){
 	if(use_cached_list && bookmark_list != null){
 		return bookmark_list;
