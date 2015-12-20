@@ -28,10 +28,12 @@
 // @grant          GM_xmlhttpRequest
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.js
 // @require        https://gist.github.com/raw/2625891/waitForKeyElements.js
-// @updateURL      https://resources.flutterb.at/userscript/186873.user.js
+// @updateURL      https://github.com/luckydonald/derpiscript/raw/master/186873.user.js
 // @preferedURL    https://flutterb.at/derpiscript-update
-// @downloadURL    https://resources.flutterb.at/userscript/186873.user.js
-// @version        0.1.4.3 
+// @downloadURL    https://github.com/luckydonald/derpiscript/raw/master/186873.user.js
+// @version        0.1.4.5
+// @history        0.1.4.5 fix for derpibooru's UI update | Not sure what exactly I did. lol.
+// @history        0.1.4.4 fix for derpibooru's UI update | (The search has no submit button anymore. Also the underscores in the fave buttons class are now dashes).
 // @history        0.1.4.3 quick fix for derpibooru's UI update.
 // @history        0.1.4.2 fixed color in comment section not compatible with dark theme | added "Better Search". This is adding the search options on the botom of a search (search only in / exclude   faves, upvotes, uploaded, whatched) to the search bar on top with an handy toggle button. You can define the default values in settings. | updated updater to force a download (and omit firefox's cached version) to make sure we don't check a old version floating on our local disk instead.
 // @history        0.1.4.1 image list now highlights voted/faved images more visibility.
@@ -616,6 +618,9 @@ function removeDownloaded(pictureNumberAsString){
 function getUrlParameter(sParam)
 {
     var sPageURL = window.location.search.substring(1);
+	if (sPageURL.indexOf(sParam) < 0) {  // Not found
+		return;
+	}
     var sURLVariables = sPageURL.split('&');
     for (var i = 0; i < sURLVariables.length; i++) 
     {
@@ -717,7 +722,6 @@ function getStyleObject(element){
 		var camelize = function(a,b){
 			return b.toUpperCase();
 		}
-		console.log("dom",dom, element);
 		style = window.getComputedStyle(dom, null);
 		for(var i=0;i<style.length;i++){
 			var prop = style[i];
@@ -1120,22 +1124,15 @@ var metasection_offset = findScrollPos(_("metasection")[0]);
 
 
 function bookmark(){
-    //$("a:contains('Up')")[2].click();
-    var clickEvent  = document.createEvent ("HTMLEvents");
-    clickEvent.initEvent ("click", true, true);
-    //alert($("span[id^='vote_up_']"));
-    //$("input[id^='vote']").val('news here!');
-    //$("span[id^='vote_up_']").dispatchEvent (clickEvent);
-    //$("a[caption='Up']")[0].dispatchEvent (clickEvent);		
-    var upvote_span = (gm_useVoteUp ? $(".vote_up_link")[0] : $(".fave_link")[0]); //depends on user settings for fave/vote
-	if((gm_useVoteUp ? upvote_span.getAttribute("class").contains("voted_up") : upvote_span.getAttribute("class").contains("faved") )) { //if was not in db, but is voted
+    var upvote_span = (gm_useVoteUp ? $(".vote-up-link") : $(".fave-link")); //depends on user settings for fave/vote
+	if(upvote_span.hasClass( gm_useVoteUp ? "voted_up" : "faved") ) { //if was not in db, but is voted
 		//do nothing
 		return;
 	} //else (if is not in db, and is not voted)
-	upvote_span.dispatchEvent (clickEvent);
-	
 	page.data.img_dl_frame.src=page.links.img_dl; //TODO: Check if null?
+	upvote_span[0].click();
 }
+
 function bookmark_getUrlList(use_cached_list){
 	if(use_cached_list && bookmark_list != null){
 		return bookmark_list;
@@ -1313,12 +1310,12 @@ function create_page_album(){
 	applyStyle(css, "album");
 	
 	waitForKeyElements ("div.imageinfo span a.vote_down_link.voted_down", page_album_highlighter, false);
-	waitForKeyElements ("div.imageinfo span a.vote_up_link.voted_up", page_album_highlighter, false);
-	waitForKeyElements ("div.imageinfo span a.fave_link.faved", page_album_highlighter, false);
-	/*$(".imageinfo a.vote_up_link.voted_up").parents('div.image').addClass("voted_up");
-	$("div.imageinfo span a.vote_up_link.voted_up").parents('div.image').addClass("voted_up");
+	waitForKeyElements ("div.imageinfo span a.vote-up-link.voted_up", page_album_highlighter, false);
+	waitForKeyElements ("div.imageinfo span a.fave-link.faved", page_album_highlighter, false);
+	/*$(".imageinfo a.vote-up-link.voted_up").parents('div.image').addClass("voted_up");
+	$("div.imageinfo span a.vote-up-link.voted_up").parents('div.image').addClass("voted_up");
 	console.log($("div.image div.imageinfo span a.voted_up"));
-	$(".imageinfo a.fave_link.faved").parents('div.image').addClass("faved");*/	
+	$(".imageinfo a.fave-link.faved").parents('div.image').addClass("faved");*/	
 }
 function page_album_highlighter(jNode){
 	console.log(jNode);
@@ -1342,17 +1339,19 @@ function page_album_highlighter(jNode){
 
 function create_search_addons(){
 	//TODO settings, if enabled.
+	console.log("derpiscript: loading search addons.")
 	var form = $("div.searchbox form");
 	var buttons = {
 		faves:   {obj: null, input: null, name: "faves",   on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-star"></i>',     tooltip:"Faves"         },
 		votes:   {obj: null, input: null, name: "upvotes", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-arrow-up"></i>', tooltip:"Upvotes"       },
 		uploads: {obj: null, input: null, name: "uploads", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-upload"></i>',   tooltip:"Uploads"       },
 		watched: {obj: null, input: null, name: "watched", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-eye"></i>',      tooltip: "Watched Tags" }
-	}
+	};
+	var tag_buttons = {
+			rating:  {obj: null, name: "rating",  states: ["explicit", "questionable", "safe"], text:'e', tooltip:"rating"},
+	};
 	var submit = form.children("a[title=Search]");
-	console.log("eep");
 	var buttonStyle = getStyleObject(submit);
-	console.log("uup");
 	var css = "\
 		div.searchbox form .addon_button{ \
 			color: " + buttonStyle.color + "; \
@@ -1381,11 +1380,20 @@ function create_search_addons(){
 		\
 	";
 	applyStyle(css, "search_addons");
+	var current_page = getUrlParameter("page");
+	if (current_page !== null) {
+		console.log(current_page);
+		$('<input type="hidden" name="page" value="' + current_page + '">').appendTo(form);
+	}
+
 	//TODO: expandable* with <i class="fa fa-bars"></i> button - *) enable in settings.
 	$.each(buttons, function(unneeded, button) {
-		button.obj = $('<a class="addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertBefore(form.children("input:submit"));
+		
+		button.obj = $('<a class="addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertAfter(form.children(".searchanchor"));
 		button.input =  $('<input type="hidden" name="' + button.name + '" value="' + button.undef + '">').appendTo(form);
 		form.append(button.input);
+		//form.append(button.obj);
+		console.log("form",form);
 		button.obj.data("tooltip",button.tooltip);
 		button.obj.data("name",button.name);
 		button.obj.data("input",button.input);
@@ -1446,6 +1454,93 @@ function create_search_addons(){
 			} else { //was default
 				btn.toggleMode("only");
 			}
+		});
+	});
+	
+	
+	//PRT 2 
+	$.each(tag_buttons, function(unneeded, button) {
+		button.obj = $('<a class="addon_button tag_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>')
+		//button.obj.insertAfter(form.children(".searchanchor"));		//TODO!
+		console.log("form",form);
+		button.obj.data("tooltip",button.tooltip);
+		button.obj.data("name",button.name);
+		button.obj.data("storage","search_last_" + button.name);
+		button.obj.attr("title", "Search " + button.tooltip + "?");
+		button.obj.data("states", button.states);
+		button.obj.data("current", -1);
+		
+		
+		toogle_textpart = function(textfield, tagList, enableTagId) {
+			var text = textfield.val(),
+				parts = text.split(","),
+				newTags = [],
+				strippedTag = tagList[enableTagId].strip();
+			disableList = (disableList === undefined || disableList === null ? [] : disableList)
+			for (i = 0; i < parts.length; i++){
+				var is_inside = false;
+				for (var b = 0; b < tagList.length(); b++){
+					if (tagList[b].strip() == parts[i].strip() && b !== enableTagId) {
+						is_inside = true;
+					}
+				}
+				if (!is_inside) {
+					newTags[newText.length] = parts[i];  //copy to second list}
+				}
+			}
+			newTags[newText.length] = strippedTag;
+			textfield.val(", ".join(newTags));
+		}
+		//Toggle Functionality
+		button.obj.toggleMode = function(mode,input) {
+			btn = $( this );
+			btn.toggleClass("only", false);
+			btn.toggleClass("not", false);
+			btn.toggleClass(mode, true);
+			btn.attr("value", mode);
+			GM_setValue(btn.data("storage"), mode);
+			switch (mode) {
+				case "not":
+					btn.attr("title", "No " + btn.data("tooltip"));
+					break;
+				case "":
+					btn.attr("title", "Search " + btn.data("tooltip") + "?");
+					break;
+				case "only":
+					btn.attr("title", btn.data("tooltip") + " Only");
+					break;
+			}
+		};
+		button.obj.data("toggle", button.obj.toggleMode); // hack to make toggleMode available in onclick.
+		
+		//Default settings, on load
+		//
+		//Get settings from search query, this will override the defaults from the settings.
+		if ((parameter_value = getUrlParameter(button.name))) {
+			button.obj.toggleMode(parameter_value);
+		} else {
+			//If setting don't force something, use last value.
+			if ((forced_value = GM_getValue("search_defaults_" + button.name, "last")) == "last") {
+				//Use last one.
+				button.obj.toggleMode(GM_getValue("search_last_" + button.name,""));
+			} else {
+				button.obj.toggleMode(forced_value);
+			}
+		}
+					
+		//Change on click, circle around the 3 modes("", "only", "not").
+		button.obj.click( function(){
+			var btn = $( this );
+			var input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']"); 
+			btn.states = btn.data("states"); // hack to make toggleMode available here.
+			btn.current = btn.data("current"); // hack to make toggleMode available here.
+			btn.current++;
+			if (btn.current>= btn.states.length()){
+				btn.current = -1;
+			}
+			toogle_textpart(textfield, btn.states, btn.current);
+			btn.data("current", current); 
+			
 		});
 	});
 	
@@ -2300,7 +2395,7 @@ function create_page_all() {
 		$(this).html($.trim($(this).html()));
 	});
 	if(gm_search_enabled) {
-		create_search_addons(); //all pages has a search field. (except maybe error pages on server derp, like 503) 
+		create_search_addons(); //all pages has a search field. (except maybe error pages on server derp, like 503) //TODO: Forum search?!
 	}
 }
 
