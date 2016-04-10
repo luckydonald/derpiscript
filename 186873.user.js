@@ -1930,7 +1930,7 @@ function create_page_settings(){
 	';
 	var tabContent = document.createElement("div");
 	tabContent.setAttribute('class','tab');
-	tabContent.setAttribute('id','tab_derpiscript');
+	tabContent.setAttribute('data-tab','tab_derpiscript');
 	tabContent.setAttribute('style','display: none;');
 	tabContent.innerHTML = newSettingsHTML;
 	$id("settingstable").appendChild(tabContent);
