@@ -31,7 +31,8 @@
 // @updateURL      https://github.com/luckydonald/derpiscript/raw/master/186873.user.js
 // @preferedURL    https://flutterb.at/derpiscript-update
 // @downloadURL    https://github.com/luckydonald/derpiscript/raw/master/186873.user.js
-// @version        0.1.4.5
+// @version        0.1.5.0
+// @history        0.1.5.0 fix for derpibooru's search update | Now everything in search is like a tag | finished implementing the multi-button
 // @history        0.1.4.5 fix for derpibooru's UI update | Not sure what exactly I did. lol.
 // @history        0.1.4.4 fix for derpibooru's UI update | (The search has no submit button anymore. Also the underscores in the fave buttons class are now dashes).
 // @history        0.1.4.3 quick fix for derpibooru's UI update.
