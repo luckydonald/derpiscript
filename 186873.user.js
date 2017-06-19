@@ -1203,6 +1203,44 @@ function findScrollPos(obj) {
 }
 
 
+/**
+ * Cuts a part out of an array.
+ *
+ * @link https://stackoverflow.com/a/9815010
+ *
+ * @param from
+ * @param to
+ * @returns {Number}
+ */
+Array.prototype.cut = function(from, to) {
+  var rest = this.slice((to || from) + 1 || this.length);
+  this.length = from < 0 ? this.length + from : from;
+  return this.push.apply(this, rest);
+};
+
+/**
+ * Removes a specified element from an array
+ *
+ * @link https://stackoverflow.com/a/10517081
+ *
+ * @returns {boolean} If it deleted something
+ */
+Array.prototype.del = function (object){
+	console.log("del'ing object", obj, "from", this);
+	var index = this.indexOf(object);
+	var deleted_something = false;
+	while (index !== -1) {
+  		this.splice(index, 1);
+		deleted_something = true;
+		index = this.indexOf(obj);
+	}
+	return deleted_something;
+};
+
+
+
+
+
 //own stuff
 //own stuff
 //own stuff
@@ -1214,6 +1252,24 @@ function findScrollPos(obj) {
 
 
 
+/**
+ * Removes a specified element from an array
+ *
+ * @link https://stackoverflow.com/a/10517081
+ *
+ * @returns {boolean} If it deleted something
+ */
+function array_del(array, obj) {
+	//console.log("deleting object", obj, "from", array);
+	var index = array.indexOf(obj);
+	var deleted_something = false;
+	while (index !== -1) {
+  		array.splice(index, 1);
+		deleted_something = true;
+		index = array.indexOf(obj);
+	}
+	return {array:array, del:deleted_something};
+}
 
 
 function scrollToPic(){
@@ -1333,6 +1389,100 @@ function page_album_highlighter(jNode){
 	}
 }
 
+/**
+ * parse_tags("test, lel, (hui, boo), wow");
+ * [ "test", "lel", "(hui, boo)", "wow" ]
+ * @param string
+ * @returns {Array}
+ */
+function parse_tags(string) {
+	var tag_list = [];
+	var backslash_escape = false;
+	var current_str = "";
+	var recursion = [];
+	var keyword = "";
+	for (i = 0; i < string.length; i++) {
+		var last_recursion = recursion[recursion.length - 1];
+		var char = string[i];
+		// console.log({i: i, char:char, current_str:current_str, backslash_escape:backslash_escape, last_recursion:last_recursion, recursion_len:recursion.length, recursion:recursion.join(", ")});
+		if (backslash_escape) {
+			current_str += char;
+			backslash_escape = false;
+		} else {
+			switch (char) {
+				case "\\":
+					backslash_escape = true;
+					current_str += char;
+					break;
+				case "(":
+					if (last_recursion != '"' && last_recursion != "'") {
+						recursion[recursion.length] = "(";
+					}
+					current_str += char;
+					break;
+				case ")":
+					if (last_recursion == "(") {
+						recursion.pop();
+					}
+					current_str += char;
+					break;
+				case '"':
+				case "'":
+					if (last_recursion == char) {
+						recursion.pop();
+					}
+					current_str += char;
+					break;
+				case ",":
+					if (recursion.length == 0) {
+						tag_list[tag_list.length] = current_str.trim();
+						current_str = "";
+					} else {
+						current_str += char;
+					}
+					break;
+				case 'A': // AND
+					if (keyword) {
+						current_str += keyword;
+					}
+					keyword = char;
+					break;
+				case 'N': // AND
+					if (keyword == "A") {
+						keyword += char;
+					} else {
+						current_str += keyword+char;
+					}
+					break;
+				case 'D': // AND
+					if (keyword != "AN") {
+						current_str += keyword+char;
+					} else { // is "AND"
+						if (recursion.length == 0) { // is not in a sublevel
+							tag_list[tag_list.length] = current_str.trim();
+							current_str = "";
+						} else {
+							current_str += "AND";
+						}
+						keyword = "";
+					}
+					break;
+				default:
+					current_str += char;
+					break;
+			}
+		}
+	}
+	if (current_str) {
+		tag_list[tag_list.length] = current_str.trim();
+	}
+	return tag_list;
+}
+// parse_tags("lel AND foo, bar, (hey, boort AND gnampf), yo\\, wit");
+
+document.onerror = function (e) {
+	console.error(e);
+};
 function create_search_addons(){
 	//TODO settings, if enabled.
 	console.log("derpiscript: loading search addons.");
@@ -1347,39 +1497,40 @@ function create_search_addons(){
 	var tag_buttons = {
 			rating:  {obj: null, name: "rating",  states: ["explicit", "questionable", "safe"], text:'rating', tooltip:"rating"}
 	};
-	console.log(tag_buttons);
+	//console.log(tag_buttons);
 	var submit = form.children(SEARCH_BUTTON_DESCRIPTOR);
-	console.log("submit", submit);
+	//console.log("submit", submit);
 	var field = form.children(SEARCH_FIELD_DESCRIPTOR);
-	console.log("field", field);
+	//console.log("field", field);
 
 
 	// PART -1: css
-	var buttonStyle = getStyleObject(submit);
+	var colors = {
+		green_bright: "#57A559",
+		green_dark: "#264827",
+		red_bright: "#A55759",
+		red_dark: "#482627",
+		border: "#5673AB" //"#284371"
+	};
 	var css = "\
 		" + SEARCH_FORM_DESCRIPTOR + " .addon_button{ \
-			color: " + buttonStyle.color + "; \
-			background-color: " + buttonStyle.backgroundColor + "; \
-			border-right: 1px solid #5673AB !important; \
+		    color: white; \
+			border-right: 1px solid" + colors.border + "; \
 			font-size: 10px;  \
 			padding-left: 3px !important; \
 			padding-right: 3px !important; \
 		} \
 		" + SEARCH_FORM_DESCRIPTOR + " .addon_button.only { \
-			color:#264827 !important; \
-			background-color:#57A559 !important; \
+			background-color: " + colors.green_dark + "; \
 		} \
 		" + SEARCH_FORM_DESCRIPTOR + " .addon_button.only:hover { \
-			color:#57A559 !important; \
-			background-color:#264827 !important; \
+			background-color:" + colors.green_bright + " !important; \
 		} \
 		" + SEARCH_FORM_DESCRIPTOR + " .addon_button.not { \
-			color:#482627 !important; \
-			background-color:#A55759 !important; \
+			background-color:" + colors.red_dark + "; \
 		} \
 		" + SEARCH_FORM_DESCRIPTOR + " .addon_button.not:hover { \
-			color:#A55759 !important; \
-			background-color:#482627 !important; \
+			background-color:" + colors.red_bright + "; \
 		} \
 		\
 	";
@@ -1391,6 +1542,8 @@ function create_search_addons(){
 	field.name = "";
 	var fake_field = $('<input type="hidden" name="q" id="fake_q" />');
 	fake_field.val(field.val());
+	var existing_tags = parse_tags(field.val());
+	console.log("parsed tags: ", existing_tags);
 	var update_query = function() {
 		var q_text = [];
 		q_text[q_text.length] = field.val();
@@ -1413,11 +1566,10 @@ function create_search_addons(){
 	field.on("input", update_query);
 	form.append(fake_field);
 
-
 	// PART 0.b: add current page field
 	var current_page = getUrlParameter("page");
 	if (current_page !== null) {
-		console.log(current_page);
+		//console.log(current_page);
 		$('<input type="hidden" name="page" value="' + current_page + '">').appendTo(form);
 	}
 
@@ -1428,13 +1580,12 @@ function create_search_addons(){
 		// create button
 		button.obj = $('<a class="header__search__button addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertBefore(submit);
 		//form.append(button.obj);    // already done on creation
-		console.log("form",form);
+		//console.log("form",form);
 		button.obj.data("tooltip",button.tooltip);
 		button.obj.data("name",button.name);
 		button.obj.data("input",button.input);
 		button.obj.data("storage","search_last_" + button.name);
 		button.obj.attr("title", "Search " + button.tooltip + "?");
-
 
 		//Toggle Functionality
 		button.obj.toggleMode = function(mode) {
@@ -1472,10 +1623,18 @@ function create_search_addons(){
 		//Default settings, on load
 		//
 		//Get settings from search query, this will override the defaults from the settings.
-		var parameter_value = getUrlParameter(button.name);
-		if (parameter_value) {
-			button.obj.toggleMode(parameter_value);
-		} else {
+		// remove from existing tags
+		var del_result;
+		if((del_result = array_del(existing_tags,button.only)).del) {
+			existing_tags = del_result.array;
+			button.obj.toggleMode('only');
+		} else if((del_result = array_del(existing_tags,button.not)).del) {
+			existing_tags = del_result.array;
+			button.obj.toggleMode('not');
+		} else if((del_result = array_del(existing_tags,button.blank)).del) {
+			existing_tags = del_result.array;
+			button.obj.toggleMode('blank');
+		} else {  // nothing loadable from query.
 			//If setting don't force something, use last value.
 			var forced_value = GM_getValue("search_defaults_" + button.name, "last");
 			if (forced_value == "last") {
@@ -1501,13 +1660,13 @@ function create_search_addons(){
 		});
 	});
 
-	
+
 	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//PART 2, tag buttons
 	$.each(tag_buttons, function(unneeded, button) {
-		button.obj = $('<a class="header__search__button addon_button tag_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + ' <span>0</span></a>');
+		button.obj = $('<a class="header__search__button addon_button tag_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>');
 		button.obj.insertBefore(submit);
-		console.log("form",form);
+		//console.log("form",form);
 		button.obj.data("tooltip",button.tooltip);
 		button.obj.data("name",button.name);
 		button.obj.data("storage","search_last_" + button.name);
@@ -1515,45 +1674,24 @@ function create_search_addons(){
 		button.obj.data("states", button.states);
 		button.obj.data("current", -1);
 
-		var toggle_textpart = function(textfield, tagList, enableTagId) {
-			var text = textfield.val(),
-				parts = text.split(","),
-				newTags = [],
-				strippedTag = tagList[enableTagId].strip();
-			disableList = (disableList === undefined || disableList === null ? [] : disableList)
-			for (i = 0; i < parts.length; i++){
-				var is_inside = false;
-				for (var b = 0; b < tagList.length(); b++){
-					if (tagList[b].strip() == parts[i].strip() && b !== enableTagId) {
-						is_inside = true;
-					}
-				}
-				if (!is_inside) {
-					newTags[newText.length] = parts[i];  //copy to second list}
-				}
-			}
-			newTags[newText.length] = strippedTag;
-			textfield.val(", ".join(newTags));
-		};
 		//Toggle Functionality
 		button.obj.toggleMode = function(new_mode) {
 			var btn = $( this );
 			btn.current = btn.data("current");
 			btn.states = btn.data("states");
 			btn.tooltip = btn.data("tooltip");
-			console.log("tag:toggle: ", btn.current,"->", new_mode, btn);
+			//console.log("tag:toggle: ", btn.current,"->", new_mode, btn);
 			btn.data("current", new_mode);
 			GM_setValue(btn.data("storage"), new_mode);
 			//var span = btn.children("span");
 			//span.text(new_mode);
 			if (new_mode != -1) {
-				var text = btn.tooltip + ": " + btn.states[new_mode];
-				btn.attr("title", text);
-				btn.text(text);
+				btn.attr("title", btn.tooltip + ": " + btn.states[new_mode]);
+				btn.text(btn.states[new_mode]);
 				btn.toggleClass("only", true);
 				btn.toggleClass("blank", false);
 			} else {
-				btn.attr("title", "Search " + btn.tooltip + "?");
+				btn.attr("title", "Toggle " + btn.tooltip);
 				btn.text(btn.tooltip);
 				btn.toggleClass("only", false);
 				btn.toggleClass("blank", true);
@@ -1563,22 +1701,32 @@ function create_search_addons(){
 		
 		//Default settings, on load
 		//
-		//TODO: Get settings from search query, this will override the defaults from the settings.
-		//If setting don't force something, use last value.
-		var forced_value = GM_getValue("search_defaults_" + button.name, "last");
-		console.log("search default for ", button.name, " : ", forced_value);
-		if (forced_value == "last") {
-			//Use last one.
-			var last_value = GM_getValue("search_last_" + button.name,-1);
-			if (last_value === "") {
-				console.log("search last for ", button.name, " was empty. Setting to", -1);
-				last_value = -1;
-				GM_setValue("search_last_" + button.name,-1);
+		var loaded_from_query = false;
+		var del_result;
+		for (var i = 0; i < button.states.length; i++) {
+			if((del_result = array_del(existing_tags,button.states[i])).del) {
+				existing_tags = del_result.array;
+				button.obj.toggleMode(i);
+				loaded_from_query = true;
 			}
-			console.log("search last for ", button.name, " : ", last_value);
-			button.obj.toggleMode(last_value);
-		} else {
-			button.obj.toggleMode(forced_value);
+		}
+		if(!loaded_from_query) {  // nothing loadable from query.
+			//If setting don't force something, use last value.
+			var forced_value = GM_getValue("search_defaults_" + button.name, "last");
+			//console.log("search default for ", button.name, " : ", forced_value);
+			if (forced_value == "last") {
+				//Use last one.
+				var last_value = GM_getValue("search_last_" + button.name, -1);
+				if (last_value === "") {
+					//console.log("search last for ", button.name, " was empty. Setting to", -1);
+					last_value = -1;
+					GM_setValue("search_last_" + button.name, -1);
+				}
+				//console.log("search last for ", button.name, " : ", last_value);
+				button.obj.toggleMode(last_value);
+			} else {
+				button.obj.toggleMode(forced_value);
+			}
 		}
 
 		//Change on click, circle around the 3 modes("", "only", "not").
@@ -1588,19 +1736,18 @@ function create_search_addons(){
 			btn.current = btn.data("current");
 			btn.toggleMode = btn.data("toggle"); // hack to make toggleMode available here.
 
-			console.log("clicked button. state:", btn.current, "states:", btn.states);
+			//console.log("clicked button. state:", btn.current, "states:", btn.states);
 			btn.current++;
 			if (btn.current>= btn.states.length){
 				btn.current = -1;
 			}
-			console.log("new state:", btn.current);
+			//console.log("new state:", btn.current);
 			btn.toggleMode(btn.current);
 			//toggle_textpart(btn.states, btn.current);
-			btn.data("current", current);
 			update_query();
 		});
 	});
-	
+	field.val(existing_tags.join(", "));
 }
 
 function selectFromOptionList(id,value){
@@ -2246,12 +2393,12 @@ function create_page_image(page){
 	document.body.onmousemove = function(evt){
 		evt = (evt) ? evt : ((window.event) ? window.event : "");
 		checkButtonPos(evt.clientY||1);
-	}
+	};
 	//TODO: only if movable.
 	document.body.onscroll = function(evt){
 		evt = (evt) ? evt : ((window.event) ? window.event : "");
 		checkButtonPos(evt.clientY||1);
-	}
+	};
 	
 	var last_img_button = document.getElementsByClassName("prev")[0];
 	var next_img_button = document.getElementsByClassName("next")[0];
