@@ -28,10 +28,11 @@
 // @grant          GM_xmlhttpRequest
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.js
 // @require        https://gist.github.com/raw/2625891/waitForKeyElements.js
-// @updateURL      https://resources.flutterb.at/userscript/186873.user.js
+// @updateURL      https://github.com/luckydonald/derpiscript/raw/master/186873.user.js
 // @preferedURL    https://flutterb.at/derpiscript-update
 // @downloadURL    https://github.com/luckydonald/derpiscript/raw/master/186873.user.js
-// @version        0.1.4.4
+// @version        0.1.4.5
+// @history        0.1.4.5 fix for derpibooru's UI update | Not sure what exactly I did. lol.
 // @history        0.1.4.4 fix for derpibooru's UI update | (The search has no submit button anymore. Also the underscores in the fave buttons class are now dashes).
 // @history        0.1.4.3 quick fix for derpibooru's UI update.
 // @history        0.1.4.2 fixed color in comment section not compatible with dark theme | added "Better Search". This is adding the search options on the botom of a search (search only in / exclude   faves, upvotes, uploaded, whatched) to the search bar on top with an handy toggle button. You can define the default values in settings. | updated updater to force a download (and omit firefox's cached version) to make sure we don't check a old version floating on our local disk instead.
@@ -48,6 +49,7 @@
 // @history        0.1.3.1 added Settings
 // @history        0.1.3.0 added Button to a working state
 // @history        0.0.0.0 initial beta release
+// @file 		   C:/Users/luckydonald/AppData/Roaming/Mozilla/Firefox/Profiles/ciin9k43.clop/gm_scripts/Derpibooru_-_Enhanced_Navigation/186873.user.js
 // ==/UserScript==
 //
 // Licenced under a Woona-Will-Cry-If-You-Modify-Or-Distribute-This 1.0 Licence.
@@ -64,12 +66,12 @@
 // More Infos: http://Flutterb.at/script
 // Do not modify the Script below.
 
-//Use the settings at http://derbibooru.org/settings 
+//Use the settings at http://derbibooru.org/settings
     var d_useRawFile = false;
 	var d_rateOnDownload = true;
 	var d_useVoteUp = true;
-    var d_buttonMoveMode = 1; 
-	var d_buttonPositionMode = 1;     
+    var d_buttonMoveMode = 1;
+	var d_buttonPositionMode = 1;
 	var d_search_enabled = true;
 	var d_search_defaults_faves   = "last";
 	var d_search_defaults_upvotes = "last";
@@ -112,18 +114,22 @@ var gm_search_enabled          = GM_getValue('search_enabled',          d_search
 var gm_search_defaults_faves   = GM_getValue('search_defaults_faves',   d_search_defaults_faves  );   GM_setValue('search_defaults_faves',   gm_search_defaults_faves   );
 var gm_search_defaults_upvotes = GM_getValue('search_defaults_upvotes', d_search_defaults_upvotes);   GM_setValue('search_defaults_upvotes', gm_search_defaults_upvotes );
 var gm_search_defaults_uploads = GM_getValue('search_defaults_uploads', d_search_defaults_uploads);   GM_setValue('search_defaults_uploads', gm_search_defaults_uploads );
-var gm_search_defaults_watched = GM_getValue('search_defaults_watched', d_search_defaults_watched);   GM_setValue('search_defaults_watched', gm_search_defaults_watched );		 
+var gm_search_defaults_watched = GM_getValue('search_defaults_watched', d_search_defaults_watched);   GM_setValue('search_defaults_watched', gm_search_defaults_watched );
 var gm_search_last_faves 	   = GM_getValue('search_last_faves',       d_search_last_faves      );   GM_setValue('search_last_faves',       gm_search_last_faves       );
 var gm_search_last_upvotes 	   = GM_getValue('search_last_upvotes',     d_search_last_upvotes    );	  GM_setValue('search_last_upvotes',     gm_search_last_upvotes     );
 var gm_search_last_uploads     = GM_getValue('search_last_uploads',     d_search_last_uploads    );	  GM_setValue('search_last_uploads',     gm_search_last_uploads     );
 var gm_search_last_watched     = GM_getValue('search_last_watched',     d_search_last_watched    );	  GM_setValue('search_last_watched',     gm_search_last_watched     );
 			                                                                                                                                                            
 var gm_backgroundColor         = GM_getValue('backgroundColor',         d_backgroundColor        ); GM_setValue('backgroundColor',           gm_backgroundColor         );
-var gm_linkColor               = GM_getValue('linkColor',               d_linkColor              ); GM_setValue('linkColor',                 gm_linkColor               ); 
+var gm_linkColor               = GM_getValue('linkColor',               d_linkColor              ); GM_setValue('linkColor',                 gm_linkColor               );
 var gm_downloadedPictures      = GM_getValue('downloadedPictures',      d_downloadedPictures     ); GM_setValue('downloadedPictures',        gm_downloadedPictures      );
 var gm_lastScriptVersion       = GM_getValue('lastScriptVersion',       d_lastScriptVersion      ); GM_setValue('lastScriptVersion',         gm_lastScriptVersion       );
 var gm_hideAds                 = GM_getValue('hideAds',                 d_hideAds                ); GM_setValue('hideAds',                   gm_hideAds                 );
 var gm_tagColors               = GM_getValue('tagColors',               d_tagColors              ); GM_setValue('tagColors',                 gm_tagColors               );
+
+
+var SEARCH_FORM_DESCRIPTOR = "form.header__search"  //was div.header__search form"  //was "div.searchbox form" before.
+var SEARCH_BUTTON_DESCRIPTOR = "button[title='Search']"  // was "a[title=Search]" before
 
 
 var changelog_bg;
@@ -133,7 +139,6 @@ console.log(page);
 pageTypeAssert(page);
 doPageType(page);
 checkAutoUpdate(false);
-
 
 function checkAutoUpdate(force){
 	var updateInterval = GM_getValue('updates_intervall', 60*60*24); // in seconds. //Minute*Hour*Day = 1 Day 
@@ -617,6 +622,9 @@ function removeDownloaded(pictureNumberAsString){
 function getUrlParameter(sParam)
 {
     var sPageURL = window.location.search.substring(1);
+	if (sPageURL.indexOf(sParam) < 0) {  // Not found
+		return;
+	}
     var sURLVariables = sPageURL.split('&');
     for (var i = 0; i < sURLVariables.length; i++) 
     {
@@ -1221,18 +1229,9 @@ function scrollToPic(){
 
 }
 
+
 function setBigButtonPos(button,number,mode){
 	if(mode) button.style.width = "25px";
-	//button.style.height = "50px";
-	//button.style.textAlign = "center";
-	//button.style.verticalAlign="middle";
-	//button.style.backgroundColor = "#dfd";
-	//button.style.color = "black";
-	//button.style.position = "fixed";
-	//button.style.top = "10px";
-	button.style.left = (10 + 60*number) + "px";
-}
-function setBigButtonPos(button,number){
 	//button.style.width = "50px";
 	//button.style.height = "50px";
 	//button.style.textAlign = "center";
@@ -1335,18 +1334,25 @@ function page_album_highlighter(jNode){
 
 function create_search_addons(){
 	//TODO settings, if enabled.
-	console.log("derpiscript: loading search addons.")
-	var form = $("div.searchbox form");
+	console.log("derpiscript: loading search addons.");
+	var form = $($(SEARCH_FORM_DESCRIPTOR)[0]);
+
 	var buttons = {
 		faves:   {obj: null, input: null, name: "faves",   on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-star"></i>',     tooltip:"Faves"         },
 		votes:   {obj: null, input: null, name: "upvotes", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-arrow-up"></i>', tooltip:"Upvotes"       },
 		uploads: {obj: null, input: null, name: "uploads", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-upload"></i>',   tooltip:"Uploads"       },
 		watched: {obj: null, input: null, name: "watched", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-eye"></i>',      tooltip: "Watched Tags" }
-	}
-	var submit = form.children("a[title=Search]");
+	};
+	var tag_buttons = {
+			rating:  {obj: null, name: "rating",  states: ["explicit", "questionable", "safe"], text:'e', tooltip:"rating"}
+	};
+	console.log(tag_buttons);
+	var submit = form.children(SEARCH_BUTTON_DESCRIPTOR);
+	console.log("submit", submit);
+
 	var buttonStyle = getStyleObject(submit);
 	var css = "\
-		div.searchbox form .addon_button{ \
+		" + SEARCH_FORM_DESCRIPTOR + " .addon_button{ \
 			color: " + buttonStyle.color + "; \
 			background-color: " + buttonStyle.backgroundColor + "; \
 			border-right: 1px solid #5673AB !important; \
@@ -1354,29 +1360,36 @@ function create_search_addons(){
 			padding-left: 3px !important; \
 			padding-right: 3px !important; \
 		} \
-		div.searchbox form .addon_button.only { \
+		" + SEARCH_FORM_DESCRIPTOR + " .addon_button.only { \
 			color:#264827 !important; \
 			background-color:#57A559 !important; \
 		} \
-		div.searchbox form .addon_button.only:hover { \
+		" + SEARCH_FORM_DESCRIPTOR + " .addon_button.only:hover { \
 			color:#57A559 !important; \
 			background-color:#264827 !important; \
 		} \
-		div.searchbox form .addon_button.not { \
+		" + SEARCH_FORM_DESCRIPTOR + " .addon_button.not { \
 			color:#482627 !important; \
 			background-color:#A55759 !important; \
 		} \
-		div.searchbox form .addon_button.not:hover { \
+		" + SEARCH_FORM_DESCRIPTOR + " .addon_button.not:hover { \
 			color:#A55759 !important; \
 			background-color:#482627 !important; \
 		} \
 		\
 	";
 	applyStyle(css, "search_addons");
+	var current_page = getUrlParameter("page");
+	if (current_page !== null) {
+		console.log(current_page);
+		$('<input type="hidden" name="page" value="' + current_page + '">').appendTo(form);
+	}
+
 	//TODO: expandable* with <i class="fa fa-bars"></i> button - *) enable in settings.
+	//PART 1: param buttons
 	$.each(buttons, function(unneeded, button) {
 		
-		button.obj = $('<a class="addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertAfter(form.children(".searchanchor"));
+		button.obj = $('<a class="addon_button header__search__button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertBefore(submit);
 		button.input =  $('<input type="hidden" name="' + button.name + '" value="' + button.undef + '">').appendTo(form);
 		form.append(button.input);
 		//form.append(button.obj);
@@ -1417,11 +1430,13 @@ function create_search_addons(){
 		//Default settings, on load
 		//
 		//Get settings from search query, this will override the defaults from the settings.
-		if ((parameter_value = getUrlParameter(button.name))) {
+		var parameter_value = getUrlParameter(button.name);
+		if (parameter_value) {
 			button.obj.toggleMode(parameter_value);
 		} else {
 			//If setting don't force something, use last value.
-			if ((forced_value = GM_getValue("search_defaults_" + button.name, "last")) == "last") {
+			var forced_value = GM_getValue("search_defaults_" + button.name, "last");
+			if (forced_value == "last") {
 				//Use last one.
 				button.obj.toggleMode(GM_getValue("search_last_" + button.name,""));
 			} else {
@@ -1441,6 +1456,94 @@ function create_search_addons(){
 			} else { //was default
 				btn.toggleMode("only");
 			}
+		});
+	});
+	
+	
+	//PART 2, tag buttons
+	$.each(tag_buttons, function(unneeded, button) {
+		button.obj = $('<a class="addon_button tag_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>')
+		//button.obj.insertAfter(form.children(".searchanchor"));		//TODO!
+		console.log("form",form);
+		button.obj.data("tooltip",button.tooltip);
+		button.obj.data("name",button.name);
+		button.obj.data("storage","search_last_" + button.name);
+		button.obj.attr("title", "Search " + button.tooltip + "?");
+		button.obj.data("states", button.states);
+		button.obj.data("current", -1);
+		
+		
+		toogle_textpart = function(textfield, tagList, enableTagId) {
+			var text = textfield.val(),
+				parts = text.split(","),
+				newTags = [],
+				strippedTag = tagList[enableTagId].strip();
+			disableList = (disableList === undefined || disableList === null ? [] : disableList)
+			for (i = 0; i < parts.length; i++){
+				var is_inside = false;
+				for (var b = 0; b < tagList.length(); b++){
+					if (tagList[b].strip() == parts[i].strip() && b !== enableTagId) {
+						is_inside = true;
+					}
+				}
+				if (!is_inside) {
+					newTags[newText.length] = parts[i];  //copy to second list}
+				}
+			}
+			newTags[newText.length] = strippedTag;
+			textfield.val(", ".join(newTags));
+		};
+		//Toggle Functionality
+		button.obj.toggleMode = function(mode,input) {
+			btn = $( this );
+			btn.toggleClass("only", false);
+			btn.toggleClass("not", false);
+			btn.toggleClass(mode, true);
+			btn.attr("value", mode);
+			GM_setValue(btn.data("storage"), mode);
+			switch (mode) {
+				case "not":
+					btn.attr("title", "No " + btn.data("tooltip"));
+					break;
+				case "":
+					btn.attr("title", "Search " + btn.data("tooltip") + "?");
+					break;
+				case "only":
+					btn.attr("title", btn.data("tooltip") + " Only");
+					break;
+			}
+		};
+		button.obj.data("toggle", button.obj.toggleMode); // hack to make toggleMode available in onclick.
+		
+		//Default settings, on load
+		//
+		//Get settings from search query, this will override the defaults from the settings.
+		if ((parameter_value = getUrlParameter(button.name))) {
+			button.obj.toggleMode(parameter_value);
+		} else {
+			//If setting don't force something, use last value.
+			var forced_value = GM_getValue("search_defaults_" + button.name, "last");
+			if (forced_value == "last") {
+				//Use last one.
+				button.obj.toggleMode(GM_getValue("search_last_" + button.name,""));
+			} else {
+				button.obj.toggleMode(forced_value);
+			}
+		}
+					
+		//Change on click, circle around the 3 modes("", "only", "not").
+		button.obj.click( function(){
+			var btn = $( this );
+			var input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']"); 
+			btn.states = btn.data("states"); // hack to make toggleMode available here.
+			btn.current = btn.data("current"); // hack to make toggleMode available here.
+			btn.current++;
+			if (btn.current>= btn.states.length()){
+				btn.current = -1;
+			}
+			toogle_textpart(textfield, btn.states, btn.current);
+			btn.data("current", current); 
+			
 		});
 	});
 	
@@ -2015,6 +2118,7 @@ function create_page_image(page){
 		}
 	}
 	linkCollection.ready = true;
+	console.log("linkCollection", linkCollection);
 	page.links = linkCollection;
 	// Vars ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2295,6 +2399,7 @@ function create_page_all() {
 		$(this).html($.trim($(this).html()));
 	});
 	if(gm_search_enabled) {
+		console.log("derpiscript: pre loading search addons.", SEARCH_FORM_DESCRIPTOR);
 		create_search_addons(); //all pages has a search field. (except maybe error pages on server derp, like 503) //TODO: Forum search?!
 	}
 }
