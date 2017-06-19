@@ -2601,7 +2601,6 @@ function create_page_all() {
 		$(this).html($.trim($(this).html()));
 	});
 	if(gm_search_enabled) {
-		console.log("derpiscript: pre loading search addons.", SEARCH_FORM_DESCRIPTOR);
 		create_search_addons(); //all pages has a search field. (except maybe error pages on server derp, like 503) //TODO: Forum search?!
 	}
 }
