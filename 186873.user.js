@@ -128,8 +128,9 @@ var gm_hideAds                 = GM_getValue('hideAds',                 d_hideAd
 var gm_tagColors               = GM_getValue('tagColors',               d_tagColors              ); GM_setValue('tagColors',                 gm_tagColors               );
 
 
-var SEARCH_FORM_DESCRIPTOR = "form.header__search"  //was div.header__search form"  //was "div.searchbox form" before.
-var SEARCH_BUTTON_DESCRIPTOR = "button[title='Search']"  // was "a[title=Search]" before
+var SEARCH_FORM_DESCRIPTOR = "form.header__search";  //was div.header__search form"  //was "div.searchbox form" before.
+var SEARCH_BUTTON_DESCRIPTOR = "button[title='Search']";  // was "a[title=Search]" before
+var SEARCH_FIELD_DESCRIPTOR = "input[type='text'][name='q']";  // was "a[title=Search]" before
 
 
 var changelog_bg;
@@ -1338,18 +1339,22 @@ function create_search_addons(){
 	var form = $($(SEARCH_FORM_DESCRIPTOR)[0]);
 
 	var buttons = {
-		faves:   {obj: null, input: null, name: "faves",   on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-star"></i>',     tooltip:"Faves"         },
-		votes:   {obj: null, input: null, name: "upvotes", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-arrow-up"></i>', tooltip:"Upvotes"       },
-		uploads: {obj: null, input: null, name: "uploads", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-upload"></i>',   tooltip:"Uploads"       },
-		watched: {obj: null, input: null, name: "watched", on: "only", off:"not", undef:"", text:'<i class="fa fa-fw fa-eye"></i>',      tooltip: "Watched Tags" }
+		faves:   {obj: null, name: "faves",   only: "my:faves",   not:"-my:faves",   blank:"", text:'<i class="fa fa-fw fa-star"></i>',     tooltip:"Faves"         },
+		votes:   {obj: null, name: "upvotes", only: "my:upvotes", not:"-my:upvotes", blank:"", text:'<i class="fa fa-fw fa-arrow-up"></i>', tooltip:"Upvotes"       },
+		uploads: {obj: null, name: "uploads", only: "my:uploads", not:"-my:uploads", blank:"", text:'<i class="fa fa-fw fa-upload"></i>',   tooltip:"Uploads"       },
+		watched: {obj: null, name: "watched", only: "my:watched", not:"-my:watched", blank:"", text:'<i class="fa fa-fw fa-eye"></i>',      tooltip: "Watched Tags" }
 	};
 	var tag_buttons = {
-			rating:  {obj: null, name: "rating",  states: ["explicit", "questionable", "safe"], text:'e', tooltip:"rating"}
+			rating:  {obj: null, name: "rating",  states: ["explicit", "questionable", "safe"], text:'rating', tooltip:"rating"}
 	};
 	console.log(tag_buttons);
 	var submit = form.children(SEARCH_BUTTON_DESCRIPTOR);
 	console.log("submit", submit);
+	var field = form.children(SEARCH_FIELD_DESCRIPTOR);
+	console.log("field", field);
 
+
+	// PART -1: css
 	var buttonStyle = getStyleObject(submit);
 	var css = "\
 		" + SEARCH_FORM_DESCRIPTOR + " .addon_button{ \
@@ -1379,45 +1384,82 @@ function create_search_addons(){
 		\
 	";
 	applyStyle(css, "search_addons");
+
+	// PART 0.a: swap out input field
+	// replace the actual input element with a hidden one.
+	// so we have control over the input field, to add our own tags.
+	field.name = "";
+	var fake_field = $('<input type="hidden" name="q" id="fake_q" />');
+	fake_field.val(field.val());
+	var update_query = function() {
+		var q_text = [];
+		q_text[q_text.length] = field.val();
+		$.each(buttons, function(unneeded, button) {
+			var key = button.obj.data("current");
+			var q_part = button[key];
+			if (q_part) {
+				q_text[q_text.length] = q_part;
+			}
+		});
+		$.each(tag_buttons, function(unneeded, button) {
+			var key = button.obj.data("current");
+			var q_part = button.states[key];
+			if (q_part) {
+				q_text[q_text.length] = q_part;
+			}
+		});
+		fake_field.val(q_text.join(", "));
+	};
+	field.on("input", update_query);
+	form.append(fake_field);
+
+
+	// PART 0.b: add current page field
 	var current_page = getUrlParameter("page");
 	if (current_page !== null) {
 		console.log(current_page);
 		$('<input type="hidden" name="page" value="' + current_page + '">').appendTo(form);
 	}
 
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//TODO: expandable* with <i class="fa fa-bars"></i> button - *) enable in settings.
 	//PART 1: param buttons
 	$.each(buttons, function(unneeded, button) {
-		
-		button.obj = $('<a class="addon_button header__search__button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertBefore(submit);
-		button.input =  $('<input type="hidden" name="' + button.name + '" value="' + button.undef + '">').appendTo(form);
-		form.append(button.input);
-		//form.append(button.obj);
+		// create button
+		button.obj = $('<a class="header__search__button addon_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>').insertBefore(submit);
+		//form.append(button.obj);    // already done on creation
 		console.log("form",form);
 		button.obj.data("tooltip",button.tooltip);
 		button.obj.data("name",button.name);
 		button.obj.data("input",button.input);
 		button.obj.data("storage","search_last_" + button.name);
 		button.obj.attr("title", "Search " + button.tooltip + "?");
-		
-		
+
+
 		//Toggle Functionality
-		button.obj.toggleMode = function(mode,input) {
+		button.obj.toggleMode = function(mode) {
 			btn = $( this );
-			input = (typeof input === "undefined") ? 
-				btn.parent().children("input:hidden[name='" + btn.data("name") + "']") /* if input not set, use this as default. */
-			 : input;  // this still is a inline if
+			if (mode === "") {
+				mode = "blank";
+			}
+			// store mode
+			btn.data("current", mode);  // ["only", "off", "blank"]
+
+			// update classes
 			btn.toggleClass("only", false);
 			btn.toggleClass("not", false);
+			btn.toggleClass("blank", false);
 			btn.toggleClass(mode, true);
-			input.attr("value", mode);
+
+			// store in last_used_*
 			GM_setValue(btn.data("storage"), mode);
 
+			// set title
 			switch (mode) {
 				case "not":
 					btn.attr("title", "No " + btn.data("tooltip"));
 					break;
-				case "":
+				case "blank":
 					btn.attr("title", "Search " + btn.data("tooltip") + "?");
 					break;
 				case "only":
@@ -1426,7 +1468,7 @@ function create_search_addons(){
 			}
 		};
 		button.obj.data("toggle", button.obj.toggleMode); // hack to make toggleMode available in onclick.
-		
+
 		//Default settings, on load
 		//
 		//Get settings from search query, this will override the defaults from the settings.
@@ -1443,27 +1485,28 @@ function create_search_addons(){
 				button.obj.toggleMode(forced_value);
 			}
 		}
-					
-		//Change on click, circle around the 3 modes("", "only", "not").
+
+		//Change on click, circle around the 3 modes("blank", "only", "not").
 		button.obj.click( function(){
 			var btn = $( this );
-			var input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']"); 
 			btn.toggleMode = btn.data("toggle"); // hack to make toggleMode available here.
-			if (btn.hasClass("only")){ //was on
+			if (btn.hasClass("only")){ //was on ("only")
 				btn.toggleMode("not");
-			} else if (btn.hasClass("not")){ //was off
-				btn.toggleMode("");
-			} else { //was default
+			} else if (btn.hasClass("not")){ //was off ("not")
+				btn.toggleMode("blank");
+			} else { //was default ("blank")
 				btn.toggleMode("only");
 			}
+			update_query();
 		});
 	});
+
 	
-	
+	///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//PART 2, tag buttons
 	$.each(tag_buttons, function(unneeded, button) {
-		button.obj = $('<a class="addon_button tag_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + '</a>')
-		//button.obj.insertAfter(form.children(".searchanchor"));		//TODO!
+		button.obj = $('<a class="header__search__button addon_button tag_button" name="' + button.name + '" title="' + button.tooltip + '">' + button.text + ' <span>0</span></a>');
+		button.obj.insertBefore(submit);
 		console.log("form",form);
 		button.obj.data("tooltip",button.tooltip);
 		button.obj.data("name",button.name);
@@ -1471,9 +1514,8 @@ function create_search_addons(){
 		button.obj.attr("title", "Search " + button.tooltip + "?");
 		button.obj.data("states", button.states);
 		button.obj.data("current", -1);
-		
-		
-		toogle_textpart = function(textfield, tagList, enableTagId) {
+
+		var toggle_textpart = function(textfield, tagList, enableTagId) {
 			var text = textfield.val(),
 				parts = text.split(","),
 				newTags = [],
@@ -1494,56 +1536,68 @@ function create_search_addons(){
 			textfield.val(", ".join(newTags));
 		};
 		//Toggle Functionality
-		button.obj.toggleMode = function(mode,input) {
-			btn = $( this );
-			btn.toggleClass("only", false);
-			btn.toggleClass("not", false);
-			btn.toggleClass(mode, true);
-			btn.attr("value", mode);
-			GM_setValue(btn.data("storage"), mode);
-			switch (mode) {
-				case "not":
-					btn.attr("title", "No " + btn.data("tooltip"));
-					break;
-				case "":
-					btn.attr("title", "Search " + btn.data("tooltip") + "?");
-					break;
-				case "only":
-					btn.attr("title", btn.data("tooltip") + " Only");
-					break;
+		button.obj.toggleMode = function(new_mode) {
+			var btn = $( this );
+			btn.current = btn.data("current");
+			btn.states = btn.data("states");
+			btn.tooltip = btn.data("tooltip");
+			console.log("tag:toggle: ", btn.current,"->", new_mode, btn);
+			btn.data("current", new_mode);
+			GM_setValue(btn.data("storage"), new_mode);
+			//var span = btn.children("span");
+			//span.text(new_mode);
+			if (new_mode != -1) {
+				var text = btn.tooltip + ": " + btn.states[new_mode];
+				btn.attr("title", text);
+				btn.text(text);
+				btn.toggleClass("only", true);
+				btn.toggleClass("blank", false);
+			} else {
+				btn.attr("title", "Search " + btn.tooltip + "?");
+				btn.text(btn.tooltip);
+				btn.toggleClass("only", false);
+				btn.toggleClass("blank", true);
 			}
 		};
 		button.obj.data("toggle", button.obj.toggleMode); // hack to make toggleMode available in onclick.
 		
 		//Default settings, on load
 		//
-		//Get settings from search query, this will override the defaults from the settings.
-		if ((parameter_value = getUrlParameter(button.name))) {
-			button.obj.toggleMode(parameter_value);
-		} else {
-			//If setting don't force something, use last value.
-			var forced_value = GM_getValue("search_defaults_" + button.name, "last");
-			if (forced_value == "last") {
-				//Use last one.
-				button.obj.toggleMode(GM_getValue("search_last_" + button.name,""));
-			} else {
-				button.obj.toggleMode(forced_value);
+		//TODO: Get settings from search query, this will override the defaults from the settings.
+		//If setting don't force something, use last value.
+		var forced_value = GM_getValue("search_defaults_" + button.name, "last");
+		console.log("search default for ", button.name, " : ", forced_value);
+		if (forced_value == "last") {
+			//Use last one.
+			var last_value = GM_getValue("search_last_" + button.name,-1);
+			if (last_value === "") {
+				console.log("search last for ", button.name, " was empty. Setting to", -1);
+				last_value = -1;
+				GM_setValue("search_last_" + button.name,-1);
 			}
+			console.log("search last for ", button.name, " : ", last_value);
+			button.obj.toggleMode(last_value);
+		} else {
+			button.obj.toggleMode(forced_value);
 		}
-					
+
 		//Change on click, circle around the 3 modes("", "only", "not").
 		button.obj.click( function(){
 			var btn = $( this );
-			var input = btn.parent().children("input:hidden[name='" + btn.data("name") + "']"); 
-			btn.states = btn.data("states"); // hack to make toggleMode available here.
-			btn.current = btn.data("current"); // hack to make toggleMode available here.
+			btn.states = btn.data("states");
+			btn.current = btn.data("current");
+			btn.toggleMode = btn.data("toggle"); // hack to make toggleMode available here.
+
+			console.log("clicked button. state:", btn.current, "states:", btn.states);
 			btn.current++;
-			if (btn.current>= btn.states.length()){
+			if (btn.current>= btn.states.length){
 				btn.current = -1;
 			}
-			toogle_textpart(textfield, btn.states, btn.current);
-			btn.data("current", current); 
-			
+			console.log("new state:", btn.current);
+			btn.toggleMode(btn.current);
+			//toggle_textpart(btn.states, btn.current);
+			btn.data("current", current);
+			update_query();
 		});
 	});
 	
