@@ -1,10 +1,8 @@
 // ==UserScript==
 // @name           Derpiscript - Derpibooru Enhanced
-// @namespace      luckydonald - admin@flutterb.at - http://flutterb.at/
+// @namespace      luckydonald - derpibooru_enhanced.code.github@luckydonald.de
 // @author         luckydonald
 // @description    Derpibooru as it should be (laptop mode, download'n'fave, keyboard shortcuts, better search etc.) 
-// @grant          GM_getValue
-// @grant          GM_setValue
 // @include        https://derpibooru.org/*
 // @include        http://derpibooru.org/*
 // @include        https://derpiboo.ru/*
@@ -21,9 +19,12 @@
 // @include        http://www.trixieboo.ru/*
 // @include        https://www.trixiebooru.org/*
 // @include        http://www.trixiebooru.org/*
+// @grant          GM.getValue
+// @grant          GM.setValue
+// @grant          GM.openInTab
+// @grant          GM.xmlHttpRequest
 // @grant          GM_getValue
 // @grant          GM_setValue
-// @grant          GM_listValues
 // @grant          GM_openInTab
 // @grant          GM_xmlhttpRequest
 // @require        http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.js
@@ -32,6 +33,8 @@
 // @preferedURL    https://flutterb.at/derpiscript-update
 // @downloadURL    https://github.com/luckydonald/derpiscript/raw/master/186873.user.js
 // @version        0.1.5.0
+// @history        1.5.1 fixed settings (including background color) | added setting to center the image (for large screens, got myself a 4K one) | worked through the changes of upvote related stuff, halfway there
+// @history        1.5.0 exactly the same as 0.1.5.0. I just don't like the "0." any more.
 // @history        0.1.5.0 fix for derpibooru's search update | Now everything in search is like a tag | finished implementing the multi-button
 // @history        0.1.4.5 fix for derpibooru's UI update | Not sure what exactly I did. lol.
 // @history        0.1.4.4 fix for derpibooru's UI update | (The search has no submit button anymore. Also the underscores in the fave buttons class are now dashes).
@@ -66,7 +69,23 @@
 // Licenced under a Woona-Will-Cry-If-You-Modify-Or-Distribute-This 1.0 Licence.
 // More Infos: http://Flutterb.at/script
 // Do not modify the Script below.
+console.log("[Derpiscript - Derpibooru Enhanced]");
+pony();
+/*
+// @require  https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 
+function GM_setValue(name, value) {
+	return await GM.setValue(name, value);
+}
+function GM_getValue(name, default_val) {
+	return await GM.getValue(name, default_val);
+}
+function GM_openInTab(name) {
+	return await GM.openInTab(name);
+}
+function GM_xmlhttpRequest(options) {
+	return await GM.xmlHttpRequest(options);
+}*/
 //Use the settings at http://derbibooru.org/settings
     var d_useRawFile = false;
 	var d_rateOnDownload = true;
@@ -88,6 +107,7 @@
 	var d_lastScriptVersion = "Not installed."; //version Check.
 	var d_hideAds = true;
 	var d_tagColors = true;
+	var d_center_image = true;
 
 // Do not modify the Script below.
 
@@ -127,12 +147,27 @@ var gm_downloadedPictures      = GM_getValue('downloadedPictures',      d_downlo
 var gm_lastScriptVersion       = GM_getValue('lastScriptVersion',       d_lastScriptVersion      ); GM_setValue('lastScriptVersion',         gm_lastScriptVersion       );
 var gm_hideAds                 = GM_getValue('hideAds',                 d_hideAds                ); GM_setValue('hideAds',                   gm_hideAds                 );
 var gm_tagColors               = GM_getValue('tagColors',               d_tagColors              ); GM_setValue('tagColors',                 gm_tagColors               );
+var gm_center_image            = GM_getValue('center_image',            d_center_image           ); GM_setValue('center_image',              gm_center_image            );
 
 
 var SEARCH_FORM_DESCRIPTOR = "form.header__search";  //was div.header__search form"  //was "div.searchbox form" before.
 var SEARCH_BUTTON_DESCRIPTOR = "button[title='Search']";  // was "a[title=Search]" before
 var SEARCH_FIELD_DESCRIPTOR = "input[type='text'][name='q']";  // was "a[title=Search]" before
 
+var SETTINGS_TABS_CLASS = "block__header--js-tabbed";
+var SETTINGS_CONTENT_ID = "js-setting-table";
+
+var IMAGE_LINK_BAR_DESCRIPTOR = "div.block__header";
+var IMAGE_LINK_NEXT_DESCRIPTOR = ".js-next";
+var IMAGE_LINK_PREV_DESCRIPTOR = ".js-prev";
+var IMAGE_LINK_RAND_DESCRIPTOR = ".js-rand";
+
+var VOTE_FAVE_DESCRIPTOR = "a.interaction--fave";
+var VOTE_UPVOTE_DESCRIPTOR = "a.interaction--upvote";
+var VOTE_DOWNVOTE_DESCRIPTOR = "a.interaction--upvote";
+var VOTE_FAVE_CLICKED_CLASS = "active";
+var VOTE_UPVOTE_CLICKED_CLASS = "active";
+var VOTE_DOWNVOTE_CLICKED_CLASS = "active";
 
 var changelog_bg;
 doVersionCheck(gm_lastScriptVersion, scriptVersion);
@@ -141,6 +176,21 @@ console.log(page);
 pageTypeAssert(page);
 doPageType(page);
 checkAutoUpdate(false);
+
+function doPageType(p){
+	create_page_all(p);
+	if(p.type == "image"){
+		create_page_image(p);
+	} else if(p.type == "settings"){
+		create_page_settings(p);
+	} else if(p.type == "album"){
+		create_page_album(p);
+	}else if(p.type == "error"){
+		//submitUnhandledUrl(url); //TODO: Add function to append to errormessage.
+	}else{
+		//submitUnhandledUrl(url); //TODO: Add function to append to errormessage = "Pagetype not handled."
+	}
+}
 
 function checkAutoUpdate(force){
 	var updateInterval = GM_getValue('updates_intervall', 60*60*24); // in seconds. //Minute*Hour*Day = 1 Day 
@@ -272,6 +322,15 @@ function $class(class_name){
 }
 function _(class_name){
 		return document.getElementsByClassName(class_name);
+}
+if (!String.prototype.trim) {  // https://stackoverflow.com/a/498995
+    (function() {
+        // Make sure we trim BOM and NBSP
+        var rtrim = /^[\s\uFEFF\xA0]+|[\s\uFEFF\xA0]+$/g;
+        String.prototype.trim = function() {
+            return this.replace(rtrim, '');
+        };
+    })();
 }
 function doVersionCheck(lastVersion, newVersion){
 	if(lastVersion == undefined || newVersion == undefined) {
@@ -472,20 +531,6 @@ function showChangelogVersion(lastVersion, newVersion, infostring, updateURL, is
 	});
 }
 
-function doPageType(p){
-	create_page_all(p);
-	if(p.type == "image"){
-		create_page_image(p);
-	} else if(p.type == "settings"){
-		create_page_settings(p);
-	} else if(p.type == "album"){
-		create_page_album(p);
-	}else if(p.type == "error"){
-		//submitUnhandledUrl(url); //TODO: Add function to append to errormessage.
-	}else{
-		//submitUnhandledUrl(url); //TODO: Add function to append to errormessage = "Pagetype not handled."
-	}
-}
 /**
  *
  * Returns array containing at least:
@@ -564,7 +609,6 @@ function submitUnhandledUrl(url){
 	showWarning(err_message);
 }
 function showWarning(err_message){	
-	//TODO: Gui instead of alert.
 	var warning_elem = document.createElement('a');
 	warning_elem.style.color = "#FFFFFF";
 	warning_elem.style.backgroundColor = "#FF0000";
@@ -1130,8 +1174,9 @@ var metasection_offset = findScrollPos(_("metasection")[0]);
 
 
 function bookmark(){
-    var upvote_span = (gm_useVoteUp ? $(".vote-up-link") : $(".fave-link")); //depends on user settings for fave/vote
-	if(upvote_span.hasClass( gm_useVoteUp ? "voted_up" : "faved") ) { //if was not in db, but is voted
+	console.log("attempting upvote+download");
+    var upvote_span = (gm_useVoteUp ? $(VOTE_UPVOTE_DESCRIPTOR) : $(VOTE_FAVE_DESCRIPTOR)); //depends on user settings for fave/vote
+	if(upvote_span.hasClass( gm_useVoteUp ? VOTE_UPVOTE_CLICKED_CLASS : VOTE_FAVE_CLICKED_CLASS) ) { //if was not in db, but is voted
 		//do nothing
 		return;
 	} //else (if is not in db, and is not voted)
@@ -1341,7 +1386,7 @@ function applyStyle(css, id){
 
 function create_page_album(){
 	var css = "\
-	div.image.voted_up.faved { \
+	div.image.voted_up."+VOTE_UPVOTE_CLICKED_CLASS+" { \
 		outline: 2px dashed #67AF2B; \
 		box-shadow: 0 0 0 2px #C4B246; \
 	} \
@@ -1362,9 +1407,9 @@ function create_page_album(){
 	";
 	applyStyle(css, "album");
 	
-	waitForKeyElements ("div.imageinfo span a.vote_down_link.voted_down", page_album_highlighter, false);
-	waitForKeyElements ("div.imageinfo span a.vote-up-link.voted_up", page_album_highlighter, false);
-	waitForKeyElements ("div.imageinfo span a.fave-link.faved", page_album_highlighter, false);
+	waitForKeyElements ("div.imageinfo span "+VOTE_DOWNVOTE_DESCRIPTOR+"."+VOTE_DOWNVOTE_CLICKED_CLASS, page_album_highlighter, false);
+	waitForKeyElements ("div.imageinfo span "+VOTE_UPVOTE_DESCRIPTOR+"."+VOTE_UPVOTE_CLICKED_CLASS, page_album_highlighter, false);
+	waitForKeyElements ("div.imageinfo span "+VOTE_FAVE_DESCRIPTOR+"."+VOTE_FAVE_CLICKED_CLASS, page_album_highlighter, false);
 	/*$(".imageinfo a.vote-up-link.voted_up").parents('div.image').addClass("voted_up");
 	$("div.imageinfo span a.vote-up-link.voted_up").parents('div.image').addClass("voted_up");
 	console.log($("div.image div.imageinfo span a.voted_up"));
@@ -1763,48 +1808,16 @@ function setOptionToGM(name, defaultValue) {
 function create_page_settings(){
 	//TODO: is all this #settingsbody stuff still neaded?
 	var css = "\
-	#settingsbody {                                                               \n\
-		margin: 0px auto;                                                         \n\
-		padding: 1em;                                                             \n\
-		text-align: center;                                                       \n\
-	}                                                                             \n\
-	#settingsbox{                                                                 \n\
-		background-color:white;                                                   \n\
-		color:black;                                                              \n\
-		box-shadow: 0px 0px 40px rgb(33, 33, 33);                                 \n\
-		padding: 1em;                                                             \n\
-		///margin: auto !important;                                               \n\
-		//width: auto;                                                            \n\
-		//height: auto;                                                           \n\
-		//width: 740px;                                                           \n\
-		display:inline-block;                                                     \n\
-		//float:left;                                                             \n\
-		//overflow: auto;                                                         \n\
-		text-align:left;                                                          \n\
-		background-color: #ffffff;                                                \n\
-		width: 400px;                                                             \n\
-																				  \n\
-	}                                                                             \n\
-	#settingsbox * {                                                              \n\
-		margin: 0;                                                                \n\
-		padding: 0;                                                               \n\
-		text-align: left;                                                         \n\
-		line-height:1.5em;                                                        \n\
-		display: inline-block;                                                    \n\
-	}                                                                             \n\
-	#settingsbox #settingsheader{															\n\
-		width: 100%;             													\n\
-	}                              													\n\
-	#settingsbox .versionField{     														\n\
+	#tab_derpiscript .versionField{     														\n\
 		text-decoration: underline;													\n\
 	} \n\
-	#settingsbox .version{     														\n\
+	#tab_derpiscript .version{     														\n\
 		text-align: right;          												\n\
 		width: 100%;             													\n\
 		text-decoration: underline;													\n\
 	}                              													\n\
 																				  \n\
-	#settingsbox label.description {                                              \n\
+	#tab_derpiscript label.description {                                              \n\
 		border: medium none;                                                      \n\
 		color: #222;                                                              \n\
 		display: block;                                                           \n\
@@ -1814,19 +1827,19 @@ function create_page_settings(){
 		font-family: \"Lucida Grande\",Tahoma,Arial,Verdana,sans-serif;           \n\
 		font-size: small;                                                         \n\
 	}                                                                             \n\
-	#settingsbox input{                                                           \n\
+	#tab_derpiscript input{                                                           \n\
 		border: 1px solid #CDCDCD;                                                \n\
 		background: #EEE;                                                         \n\
 		background: none repeat scroll 0% 0% #EEE;                                \n\
 	}                                                                             \n\
-	#settingsbox input.checkbox,#settingsbox input.radio {                        \n\
+	#tab_derpiscript input.checkbox,#tab_derpiscript input.radio {                        \n\
 		//display: block;                                                         \n\
 		height: 13px;                                                             \n\
 		line-height: 1.4em;                                                       \n\
 		//margin: 7px 0px 1px 5px;                                                \n\
 		width: 13px;                                                              \n\
 	}                                                                             \n\
-	#settingsbox label.choice {                                                   \n\
+	#tab_derpiscript label.choice {                                                   \n\
 		color: #444;                                                              \n\
 		//display: block;                                                         \n\
 		display: inline-block;                                                    \n\
@@ -1836,56 +1849,56 @@ function create_page_settings(){
 		//padding: 4px 0px 5px !important;                                        \n\
 		width: 90%;                                                               \n\
 	}                                                                             \n\
-	#settingsbox label {                                                          \n\
+	#tab_derpiscript label {                                                          \n\
 		font-family: \"Lucida Grande\",Tahoma,Arial,Verdana,sans-serif;           \n\
 		text-align: left;                                                         \n\
 		float: clear !important;                                                  \n\
 		width:auto !important;                                                    \n\
 		height:auto !important;                                                   \n\
 	}                                                                             \n\
-	#settingsbox .li,#settingsbox .ul{                                              \n\
+	#tab_derpiscript .li,#tab_derpiscript .ul{                                              \n\
 		//padding: 0px;                                                           \n\
 		///padding:4px 5px 2px 2px;                                               \n\
 		list-style-type: none;                                                    \n\
 		margin: 0px;                                                              \n\
 		padding: 0px;                                                             \n\
 	}                                                                             \n\
-	#settingsbox .li{                                                              \n\
+	#tab_derpiscript .li{                                                              \n\
 		margin-top: 1em;                                                          \n\
 	}                                                                             \n\
-	#settingsbox .li:first-child{                                                  \n\
+	#tab_derpiscript .li:first-child{                                                  \n\
 		margin-top: 0;                                                            \n\
 	}                                                                             \n\
-	#settingsbox .li .grouper{                                                     \n\
+	#tab_derpiscript .li .grouper{                                                     \n\
 		margin-left: 1em;                                                         \n\
 	}                                                                             \n\
-	#settingsbox .li .grouper label {                                              \n\
+	#tab_derpiscript .li .grouper label {                                              \n\
 		margin-top: 0.5em;                                                        \n\
 		display: block;                                                           \n\
 	}                                                                             \n\
-	#settingsbox .li .grouper .guidelines{                                         \n\
+	#tab_derpiscript .li .grouper .guidelines{                                         \n\
 		margin-left: 2em;                                                       \n\
 		display: block;                                                           \n\
 	}                                                                             \n\
 																				  \n\
-	#settingsbox #li_dl p {                                                        \n\
+	#tab_derpiscript #li_dl p {                                                        \n\
 		///padding:4px 0px 20px 30px;                                             \n\
 	}                                                                             \n\
-	#settingsbox #li_move p {                                                        \n\
+	#tab_derpiscript #li_move p {                                                        \n\
 		///padding:4px 0px 2px 30px;                                              \n\
 	}                                                                             \n\
-	#settingsbox .li .description, #settingsbox #li_style .grouper{                                         \n\
+	#tab_derpiscript .li .description, #tab_derpiscript #li_style .grouper{                                         \n\
 		display: block;                                                           \n\
 	}                                                                             \n\
 																				  \n\
-	#settingsbox input.button {                                                   \n\
+	#tab_derpiscript input.button {                                                   \n\
 		font-size: 100%;                                                          \n\
 		///margin:20px 0px 0px 0px;                                               \n\
 		border: 1px solid darkgray;                                               \n\
 		padding: 5px;                                                             \n\
 																				  \n\
 	}                                                                             \n\
-	#settingsbox input.button:hover, #settingsbox input[type=\"button\"]:hover {  \n\
+	#tab_derpiscript input.button:hover, #tab_derpiscript input[type=\"button\"]:hover {  \n\
 		font-size: 100%;                                                          \n\
 		///margin:20px 0px 0px 0px;                                               \n\
 		border: 1px solid dark-gray;                                              \n\
@@ -1894,24 +1907,24 @@ function create_page_settings(){
 		   -moz-box-shadow: inset 0 0 10px #000000;                               \n\
 				box-shadow: inset 0 0  5px darkgrey;                              \n\
 	}                                                                             \n\
-	#settingsbox .block {                                                         \n\
+	#tab_derpiscript .block {                                                         \n\
 		display: block;                                                           \n\
 	}                                                                             \n\
-	#settingsbox .element_style_bgcolor_colorresult {                               \n\
+	#tab_derpiscript .element_style_bgcolor_colorresult {                               \n\
 		border: 1px solid darkgrey;                                               	\n\
 		padding: 5px 10px 5px 10px;                                               	\n\
 	}                                                                             	\n\
-	#settingsbox .guidelines {                         \n\
+	#tab_derpiscript .guidelines {                         \n\
 		display: block;                           \n\
 	}                                            \n\
-	.non-label { \n\
+	#tab_derpiscript .non-label { \n\
 		float: none;\n\
 	}\n\
-	input[type=\"radio\"]{\
+	#tab_derpiscript input[type=\"radio\"]{\
 		margin-top: 8px;\
 		margin-left: 5px;\
 	}\
-	.colorresult {                               \n\
+	#tab_derpiscript .colorresult {                               \n\
 		border: 1px solid darkgrey;                                               	\n\
 		padding: 5px 10px 5px 10px;                                               	\n\
 	}                                                                             	\n\
@@ -1929,20 +1942,17 @@ function create_page_settings(){
 	
 	//Settings
 	var tabname = document.createElement('a');
-	tabname.setAttribute('data-tab', 'tab_derpiscript');
+	tabname.setAttribute('data-click-tab', 'tab_derpiscript');
 	tabname.href = "#";
 	tabname.id = "tab_derpiscript_header";
 	tabname.innerHTML = "Derpiscript";
-	$class("tabs").appendChild(tabname);
+	var tabs = $class(SETTINGS_TABS_CLASS);
+	tabs.appendChild(tabname);
 	
 	newSettingsHTML = '\
 	\
-			<p> <strong>Derpiscript Settings</strong></p> \n\
+			<p> <strong>Derpiscript Settings</strong> <div id=\"script_version\" class=\"version\">Script Version: <span id=\"script_version_field\" class=\"versionField\">Error Displaying Version...</span></div></p> \n\
 			\
-			\
-			<div class="fieldlabel"> \n\
-				<div id=\"script_version\" class=\"version\">Script Version: <span id=\"script_version_field\" class=\"versionField\">Error Displaying Version...</span></div></p> \n\
-			</div> \n\
 	\
 			<p> <strong>Download</strong></p> \n\
 			\
@@ -1970,6 +1980,16 @@ function create_page_settings(){
 			<div class="fieldlabel"> \n\
 				Set to <code>true</code> to automaticly Fave the image when downloading the image.<br>Set to <code>false</code> to automaticly Vote Up when downloading the image.<br>Default is <code>false</code>.   \n\
 			</div> \n\
+		\
+			<p> <strong>Big screen options</strong></p> \n\
+			\
+			<div class="field"> \
+				<label for="script_center_image">Center image</label> \
+				<input id="script_center_image" value="0" type="checkbox"> \
+			</div> \n\
+			<div class="fieldlabel"> \n\
+				Set to <code>true</code>  center the image.<br>Set to <code>false</code> to keep default behaviour of the site. \
+			</div> \
 		\
 			<p> <strong>EasyButtons Mode</strong></p> \n\
 			\
@@ -2134,19 +2154,19 @@ function create_page_settings(){
 	\
 	';
 	var tabContent = document.createElement("div");
-	tabContent.setAttribute('class','tab');
+	tabContent.setAttribute('class','block__tab hidden');
+	tabContent.setAttribute('data-tab','tab_derpiscript');
 	tabContent.setAttribute('id','tab_derpiscript');
-	tabContent.setAttribute('style','display: none;');
 	tabContent.innerHTML = newSettingsHTML;
-	$id("settingstable").appendChild(tabContent);
+	$id(SETTINGS_CONTENT_ID).appendChild(tabContent);
 	//script to use tabs correctly modified from derpibooru
-	$('#settingstable .tabs #tab_derpiscript_header').click(function(){
-		$('#settingstable .tabs a').removeClass('selected');
+	/*$('#'+SETTINGS_CONTENT_ID+' .block__header block__header--js-tabbed #tab_derpiscript_header').click(function(){
+		$('#'+SETTINGS_CONTENT_ID+' .tabs a').removeClass('selected');
 		$(this).addClass('selected');
-		$('#settingstable .tab').hide();
-		$('#settingstable #tab_derpiscript').show();
+		$('#'+SETTINGS_CONTENT_ID+' .tab').hide();
+		$('#'+SETTINGS_CONTENT_ID+' #tab_derpiscript').show();
 		return false;
-	});
+	});*/
 	//end from derpibooru
 	
 	$id("script_version_field").innerHTML = scriptVersion; 
@@ -2156,11 +2176,11 @@ function create_page_settings(){
 	versionbutton = $id("script_version");
 	versionbutton.addEventListener('click', showChangelog, false);
 	$(":submit").click(function(event) {
-		if(!$('#settingstable .tabs #tab_derpiscript_header').hasClass('selected')){
+		if(!$('#'+SETTINGS_CONTENT_ID+' #tab_derpiscript_header').hasClass('selected')){
 			return true;
 		}
-		event.preventDefault(); // cancel default behavior
 		saveoptions();
+		event.preventDefault(); // cancel default behavior
 		return false;
 	});
 	resetElem.addEventListener('click', resetoptions, false);
@@ -2171,6 +2191,8 @@ function create_page_settings(){
 	$id("script_download_tagged").checked = !GM_getValue('useRawFile',d_useRawFile);
 	$id("script_download_vote_enabled").checked = GM_getValue('rateOnDownload', d_rateOnDownload);
 	$id("script_download_vote_fave").checked=!GM_getValue('useVoteUp', d_useVoteUp);
+	
+	$id("script_center_image").checked = GM_getValue('center_image',d_center_image);
 
 	theButtonMode = GM_getValue('buttonMoveMode',d_buttonPositionMode);
 	var buttonMoveModes = document.getElementsByName("script_buttons_mode");
@@ -2183,7 +2205,6 @@ function create_page_settings(){
 	for(var i = 0; i<buttonPosModes.length; i++){
 		buttonPosModes[i].checked = (buttonPosModes[i].value==thePosMode); //buttonMoveMode
 	}
-	
 	bgColor = GM_getValue('backgroundColor',d_backgroundColor);
 	linkColor = GM_getValue('linkColor',d_linkColor);
 	contrastBgColor = getContrastYIQ_BW(bgColor);
@@ -2191,8 +2212,8 @@ function create_page_settings(){
 	setPickerColor("script_styles_color_link", linkColor);
 	$id("script_styles_hide_ads").checked = GM_getValue('hideAds',d_hideAds);
 	$id("script_styles_tag_colors").checked = GM_getValue('tagColors',d_tagColors);
-	$id("script_search_enabled").checked = GM_getValue('search_enabled',d_search_enabled);
 	
+	$id("script_search_enabled").checked = GM_getValue('search_enabled',d_search_enabled);
 	setOptionToGM("search_defaults_faves",   d_search_defaults_faves);
 	setOptionToGM("search_defaults_upvotes", d_search_defaults_uploads);
 	setOptionToGM("search_defaults_uploads", d_search_defaults_upvotes);
@@ -2274,51 +2295,44 @@ function create_page_image(page){
 	}																				\n\
 	';
 	applyStyle(css,"hoverboxthingie");
+	
+	// 4K stuff ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+	// Center the image
+	if (gm_center_image) {
+		applyStyle(".image-show-container, .image-show {width: 100%;}.image-show {text-align:center;}", "center_image");
+	}
+	
 	//get Links ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	linkCollection = {img_full:"" ,img_dl:"",page_next:"", page_prev:"", page_rand:"", ready:false}; //Not needed:  ,vote_up:"",vote_down:"", vote_fave:""};
 
-	linkCollection.page_next = document.getElementsByClassName("next")[0].getElementsByTagName('a')[0].href;
-	// var next_img_page_href = document.getElementsByClassName("next")[0].getElementsByTagName('a')[0].href;
-	linkCollection.page_prev = document.getElementsByClassName("prev")[0].getElementsByTagName('a')[0].href;
-	// var last_img_page_href = document.getElementsByClassName("prev")[0].getElementsByTagName('a')[0].href;
-	linkCollection.page_rand = document.getElementsByClassName("rand")[0].getElementsByTagName('a')[0].href;
-	// var rand_img_page_href = document.getElementsByClassName("rand")[0].getElementsByTagName('a')[0].href;
-	// var up_vote_page_href = location.href;
-	// var down_vote_page_href = location.href;
-	// var fave_vote_page_href = location.href;
+	linkCollection.page_next = $(IMAGE_LINK_NEXT_DESCRIPTOR)[0].href;
+	linkCollection.page_prev = $(IMAGE_LINK_PREV_DESCRIPTOR)[0].href;
+	linkCollection.page_rand = $(IMAGE_LINK_RAND_DESCRIPTOR)[0].href;
 
-	var metasection_divs = document.getElementsByClassName("metasection");
-
-	for (var i2 = 0; i2 < metasection_divs.length; i2++) {
-		var meta_each = metasection_divs[i2].getElementsByTagName('a');
-		for (var i = 0; i < meta_each.length; i++) {
-			var each = meta_each[i];
-			//alert(each);
-			if (each.length != 0){
-				if( each.innerHTML == "View"){
-					linkCollection.img_full = each.href;
-					each.setAttribute('target', '_blank');
-					each.setAttribute('onclick', 'this.focus()');
-				}else if( each.innerHTML == "Download" && !gm_useRawFile){
-					linkCollection.img_dl = each.href;
-					linkCollection.img_dl = linkCollection.img_dl.replace('http://','https://');
-				}else if( each.innerHTML == "DLS" && gm_useRawFile){
-					linkCollection.img_dl = each.href;
-					linkCollection.img_dl = linkCollection.img_dl.replace('http://','https://');
-					/*
-				}else if( each.innerHTML == "Up"){
-					up_vote_page_href = each;
-				}else if( each.innerHTML == "Down"){
-					down_vote_page_href = each;
-				}else if( each.innerHTML == "Fave"){
-					fave_vote_page_href = each;
-				}else{
-					//alert(each.innerHTML + " = " + each.href);
-					*/
-				}
-			}
+	$(IMAGE_LINK_BAR_DESCRIPTOR).find('a').each(function() {
+		var each = $(this)[0];
+		var button_name = $(this).text().trim();
+		console.log(button_name + " | " + (button_name == "View"? "y":"n")+ " | " + (gm_useRawFile? "y":"n"));
+		if (!gm_useRawFile && button_name == "View") {
+			console.log("View", each.href);
+			linkCollection.img_full = each.href;
+			$(each).attr('target', '_blank');
+			$(each).attr('onclick', 'this.focus()');
+		}else if (gm_useRawFile && button_name == "VS") {
+			console.log("VS", each.href);
+			linkCollection.img_full = each.href;
+			$(each).attr('target', '_blank');
+			$(each).attr('onclick', 'this.focus()');
+		}else if(!gm_useRawFile && button_name == "Download"){
+			console.log("Download", each.href);
+			linkCollection.img_dl = each.href;
+		}else if(gm_useRawFile && button_name == "DLS"){
+			console.log("DL", each.href);
+			linkCollection.img_dl = each.href;
 		}
-	}
+	});
+	// links are often just starting with '//derpicdn.net'  instead of 'https://derpicdn.net'. Also rewriting to https, while at it.
+	linkCollection.img_dl = linkCollection.img_dl.replace(/^(http:)?\/\//, "https://");
 	linkCollection.ready = true;
 	console.log("linkCollection", linkCollection);
 	page.links = linkCollection;
@@ -2388,6 +2402,7 @@ function create_page_image(page){
 	document.body.appendChild(img_div);
 	document.body.appendChild(all_);
 
+	/*
 
 	// The Buttons again. ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	//TODO: only if movable.
@@ -2401,10 +2416,10 @@ function create_page_image(page){
 		checkButtonPos(evt.clientY||1);
 	};
 	
-	var last_img_button = document.getElementsByClassName("prev")[0];
-	var next_img_button = document.getElementsByClassName("next")[0];
+	var last_img_button = $(IMAGE_LINK_PREV_DESCRIPTOR)[0];
+	var next_img_button = $(IMAGE_LINK_NEXT_DESCRIPTOR)[0];
 	var load_img_button = document.createElement('span');
-	var button_parent = document.getElementsByClassName("metabar")[0];
+	var button_parent = $(IMAGE_LINK_BAR_DESCRIPTOR)[0];
 	var sub_element = document.createElement('div');
 	var load_img_button_link = document.createElement('a');
 	load_img_button_link.addEventListener('click', bookmark, false);
@@ -2439,9 +2454,12 @@ function create_page_image(page){
 	checkButtonPos(0);
 	window.onload = scrollToPic;
 	
+	*/
 	
 	//Init Key Bindings
-	window.addEventListener("keypress" , function(e){
+	var key_listener = function(e){
+		console.log("Keypress!!");
+		console.log(e);
 		if (e.shiftKey === true){
 			return false;
 		}
@@ -2469,7 +2487,15 @@ function create_page_image(page){
 		}else{
 		   console.log('Pressed unegistered key "' + e.keyCode + '" with char code "' + e.charCode + '".');
 		}
-	}, false);
+	};
+	window.addEventListener("keyup" , key_listener, false);
+	document.addEventListener("keypress" , key_listener, false);
+	jQuery(function()
+	{
+		$(window).keypress(key_listener);
+		$("body").keypress(key_listener);
+		$(document).keypress(key_listener);
+	});
 }
 function create_page_all() {
 	var css='\
@@ -2497,9 +2523,9 @@ function create_page_all() {
 	.image_description, .image_description H3, #imagespns, comment_live_preview{\n\
 		color: black;                                                             	\n\
 	}                                                                             	\n\
-	body{                        													\n\
-		color: ' + getContrastYIQ_BW(GM_getValue('backgroundColor')) + ';                     \n\
-		background-color: ' + GM_getValue('backgroundColor') + ';                             \n\
+	body, #container{                        													\n\
+		color: ' + getContrastYIQ_BW(GM_getValue('backgroundColor')) + ';           \n\
+		background-color: ' + GM_getValue('backgroundColor') + ';                   \n\
 	}																				\n\
 	a{                        														\n\
 		color: '+GM_getValue('linkColor')+';                                        \n\
@@ -2633,7 +2659,8 @@ function saveoptions(){
     GM_setValue('useRawFile',!$id("script_download_tagged").checked);
     GM_setValue('rateOnDownload',$id("script_download_vote_enabled").checked);  //rateOnDownload
     GM_setValue('useVoteUp',!$id("script_download_vote_fave").checked); //useVoteUp
-    
+
+	GM_setValue('center_image', $id("script_center_image").checked);    
     
     theButtonMode = 0;
     var buttonMoveModes = document.getElementsByName("script_buttons_mode");
@@ -2732,3 +2759,661 @@ function setPickerColor(name,color){
 var unused = '\
 <div class="flash darknotice"><strong>Are you an API user?</strong> We\'ve changed some of the previous API behaviour relating to comments and faves. <a href="/api">Find out more here</a>.</div>\
 ';
+function pony() {
+		var m = 'font-family:monospace;background-color:transparent!important;color:#';
+	if (window.console) console.log(
+	    '%c                                                                                                                                                                                                        \n                                                                                                                                                                                                        \n                                                                                                                                                                                                        \n                                                                                                                          %c %c#####%c@%c %c                                                                      \n                                                                                             %c#%c+%c*%c    %c %c %c@%c####%c#%c#%c#%c#%c*%c*%c*%c*%c#%c#%c#%c#%c###%c#%c@%c %c %c@%c#%c#%c**%c*%c#%c#%c@%c                                                                 \n                                                                                             %c+%c.%c.%c:%c+%c*%c*%c**%c*%c*******%c*%c*******%c*%c******%c*%c#%c#%c#%c#%c#%c#%c**%c*%c*%c#%c#%c        %c %c                                                     \n                                                                                           %c@%c#%c+%c....%c:%c+%c*%c*%c*%c****%c*%c**%c*%c****%c*%c**%c*%c****%c*%c**%c*%c***%c#%c##%c#%c*%c***%c*%c#%c %c   %c@%c+%c.%c:%c+%c*%c                                                  \n                                                                                        %c@%c#%c#%c*%c*%c+%c.%c....%c:%c+%c+%c*%c*%c**%c*%c*%c**%c*%c*%c**%c*%c*%c**%c*%c*%c**%c*%c*%c**%c*%c*%c**%c*%c*%c*%c*%c#%c*%c**%c*%c*%c*%c#%c %c+%c+%c.....%c.%c+%c+%c %c                                              \n                                                                                      %c#%c#%c*%c*%c***%c+%c+%c....%c+%c.%c.%c+%c*%c#%c#%c#%c#%c#%c#%c#%c##%c#%c#%c*%c*%c*%c*%c**%c*%c****%c*%c**%c*%c****%c*%c**%c*%c****%c+%c:%c.........%c.%c+%c*%c                                            \n                                                                                    %c#%c#%c*%c#%c######%c+%c..%c:%c+%c....%c:%c+%c*%c***********************************%c+%c+%c..%c.%c..........%c+%c+%c                                          \n                                                                                  %c %c#%c %c  %c@%c#%c#%c*%c***%c+%c+%c.........%c+%c+%c******%c*%c*******%c*%c*******%c*%c*******%c*%c**%c+%c+%c..%c+%c.............%c+%c+%c                                        \n                                                                                   %c %c#%c#%c*%c*%c*%c*%c**%c*%c*%c*%c+%c.........%c+%c:%c+%c*%c****%c*%c**%c*%c****%c*%c**%c*%c****%c*%c**%c*%c****%c*%c**%c+%c..%c:%c:%c...............%c+%c*%c                                      \n                                                                                %c %c#%c#%c*%c****%c*%c*%c**%c*%c**%c+%c+%c.......%c+%c...%c+%c+%c***%c*%c**%c*%c****%c*%c**%c*%c****%c*%c**%c*%c****%c*%c*%c+%c+%c..%c+%c..............%c:%c..%c.%c+%c                                     \n                                                                              %c@%c#%c*%c*******%c********%c+%c.%c...%c.%c+%c+%c.....%c+%c+%c****************************%c+%c.%c..%c+%c...............%c+%c...%c+%c@%c                                   \n                                                                            %c@%c#%c*%c*********%c********%c+%c+%c.%c.%c..........%c+%c+%c*%c**************************%c+%c..%c.%c+%c....%c...........%c:%c:%c...%c+%c#%c                                  \n                                                                          %c %c#%c*%c*****%c**%c****%c*********%c+%c.%c..........%c.%c+%c.%c+%c+%c*************************%c+%c..%c.%c+%c...............%c.%c+%c....%c+%c@%c                                 \n                                                                         %c#%c#%c*%c*****%c*%c*%c*%c****%c*******%c*%c*%c*%c+%c.........%c:%c+%c...%c:%c+%c****%c*%c*******%c*%c*******%c*%c***%c+%c...%c+%c.........%c..%c..%c...%c+%c.....%c+%c                                 \n                                                                        %c#%c*%c**************%c**********%c+%c+%c......%c:%c+%c.%c....%c.%c.%c+%c*%c**********************%c+%c...%c+%c:%c.%c.%c............%c:%c+%c.....%c.%c+%c                                \n                                                                       %c#%c*%c***************%c*******%c*%c***%c+%c+%c+%c+%c*%c#%c##%c#%c#%c*%c*%c*%c*******%c*%c*******%c*%c*******%c*%c***%c+%c:%c..%c:%c+%c.%c:%c....%c:%c...%c:%c...%c+%c:%c......%c+%c@%c                               \n                                                                      %c#%c*%c****************%c*********%c*%c#%c##%c#%c*%c************************************%c*%c+%c...%c+%c:%c::::::::::::%c:%c+%c.......%c:%c+%c                               \n                                                                     %c#%c#%c***************%c*%c*%c*%c**%c*%c*%c*%c*%c#%c#%c*%c*%c*%c*%c*%c**%c*%c**%c*%c*%c*%c**%c*%c**%c*%c*%c*%c**%c*%c**%c*%c*%c*%c**%c*%c**%c*%c*%c*%c**%c*%c**%c*%c+%c.%c...%c+%c:%c:::::::::::%c+%c.%c........%c+%c                               \n                                                                     %c#%c**************%c#%c#%c#%c*%c***%c*%c#%c#%c*%c*********************************************%c*%c+%c...%c.%c+%c::::::::::%c+%c:%c.........%c+%c                               \n                                                                    %c#%c#%c***********%c*%c#%c#%c#%c#%c**%c*%c*%c#%c#%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c**%c*%c+%c+%c...%c.%c+%c:%c:::::::%c+%c:%c.%c...%c.%c...%c.%c.%c+%c                               \n                                                                    %c#%c**********%c#%c#%c %c %c#%c*%c**%c*%c#%c#%c****************************************************%c+%c:%c...%c.%c+%c:%c:::::%c+%c+%c...........%c+%c                               \n                                                                    %c#%c*******%c*%c#%c@%c %c@%c#%c*%c***%c#%c#%c*******************************************************%c+%c:%c....%c+%c+%c::::%c+%c...........%c.%c+%c#%c                              \n                                                                   %c %c#%c*****%c#%c#%c %c %c@%c#######%c*%c*%c***************************************%c*%c***********%c*%c#%c##%c#%c+%c:%c.%c..%c.%c:%c+%c:%c:%c+%c+%c.%c..%c..%c..%c..%c..%c+%c+%c*%c#%c#%c %c                           \n                                                                   %c %c#%c***%c#%c#%c %c        %c#%c#%c***%c*************************************%c#%c#%c********%c*%c#%c#%c:%c.............%c+%c+%c+%c+%c...........%c+%c****%c#%c#%c                          \n                                                                   %c %c#%c**%c#%c@%c         %c#%c*%c****%c**********************************%c#%c#%c*%c#%c******%c*%c#%c#%c.%c...%c.%c*%c@%c     %c@%c*%c.%c.%c.%c.%c.%c+%c+%c.%c %c.%c.%c...%c..%c.%c+%c+%c*****%c#%c#%c                         \n                                                                    %c#%c*%c#%c          %c#%c*%c*****%c******************************%c#%c#%c#%c+%c.%c.%c#%c*%c****%c*%c#%c:%c...%c#%c %c %c:%c         %c+%c %c %c.%c.%c.%c.%c*%c %c....%c.%c..%c+%c+%c*******%c#%c@%c                        \n                                                                    %c##%c          %c#%c*%c******%c*************************%c*%c#%c#%c#%c+%c.%c...%c.%c+%c#%c***%c*%c#%c+%c..%c:%c %c %c       %c,%c*%c##%c#%c##%c#%c:%c %c %c.%c+%c %c.%c.%c..%c#%c.%c.%c+%c+%c********%c*%c#%c                        \n                                                                    %c#%c %c         %c#%c*%c*******%c********************%c*%c#%c#%c#%c+%c.%c.....%c.%c...%c#%c*%c**%c*%c#%c...%c %c@%c       %c*%c#%c#%c#%c#%c#%c###%c#%c#%c#%c#%c  %c...%c.%c*%c@%c.%c+%c*%c**********%c#%c %c                       \n                                                                              %c#%c*%c********%c***************%c*%c#%c##%c*%c.%c..%c...%c.%c..%c..%c...%c.%c#%c**%c#%c#%c..%c+%c %c,%c      %c:%c#%c#%c..%c.%c:%c:%c   %c %c %c#%c#%c#%c %c.%c.%c#%c %c#%c+%c+%c************%c#%c#%c                       \n                                                                             %c#%c*%c*********%c***********%c*%c#%c#%c#%c#%c###%c %c %c.%c.............%c#%c*%c*%c#%c..%c#%c %c       %c#%c#%c...%c:::::%c     %c %c#%c@%c  %c:%c+%c#%c*%c*************%c*%c#%c                       \n                                                                            %c#%c#%c**********%c**%c**%c**%c*%c*%c#%c#%c#%c#%c#%c@%c      %c %c %c %c...%c.%c..%c..%c...%c.%c#%c*%c#%c:%c.%c+%c %c       %c*%c#%c..%c.%c::::::%c       %c#%c %c:%c.%c.%c#%c*%c**%c**%c*%c***%c**%c**%c*%c*%c#%c                       \n                                                                           %c#%c#%c******%c*%c#%c***%c*****%c#%c#%c#%c###%c*%c.....%c     %c %c %c.%c..........%c#%c#%c#%c..%c %c,%c      %c,%c#%c.%c.%c.%c:::::::%c       %c@%c %c %c %c#%c*%c**************%c*%c#%c                       \n                                                                          %c#%c#%c*****%c*%c##%c****%c**%c#%c#%c+%c  %c###%c.%c.......%c     %c %c %c:%c.........%c+%c#%c+%c.%c %c %c       %c#%c#%c..%c:%c::::::%c:%c        %c*%c.%c#%c#%c***************%c*%c#%c                       \n                                                                         %c#%c#%c****%c#%c#%c %c#%c****%c*%c#%c#%c %c   %c*%c##%c:%c.%c.......%c      %c %c %c.%c..%c..%c.%c...%c.%c#%c.%c.%c %c.%c       %c#%c*%c..%c:::::::%c  %c %c   %c  %c %c*%c#%c#%c****************%c*%c#%c@%c                      \n                                                                        %c#%c#%c**%c*%c#%c#%c  %c#%c#%c**%c*%c#%c#%c %c     %c###%c.%c........%c       %c %c %c.......%c.%c....%c %c       %c %c#%c#%c..%c:::::%c:%c %c:::%c     %c %c#%c*%c*****************%c*%c#%c#%c                      \n                                                                      %c %c#%c*%c#%c#%c#%c %c   %c %c#%c**%c#%c#%c@%c@%c#%c     %c#%c#%c#%c.%c.......%c.%c        %c %c@%c...%c.%c...%c.%c...%c %c       %c %c#%c#%c*%c.%c::::%c@%c %c::::%c  %c  %c#%c#%c*****************%c*%c*%c**%c#%c                      \n                                                                    %c %c###%c@%c       %c#%c*%c#%c#%c  %c+%c.%c.%c     %c#%c#%c#%c.%c.%c......%c %c#%c:%c      %c %c %c...........%c %c,%c       %c.%c.%c.%c:%c   %c %c  %c#%c:%c+%c  %c %c %c#%c*%c**********%c*%c*%c******%c#%c#%c*%c*%c*%c#%c                     \n                                                                  %c@%c@%c %c           %c##%c %c   %c+%c+%c.%c     %c*%c#%c#%c.%c.%c....%c.%c %c:%c..%c.%c %c %c %c   %c %c...........%c@%c@%c       %c:%c.%c:%c:%c %c          %c@%c#%c**********%c*%c#%c*%c*******%c#%c %c#%c#%c#%c*%c#%c %c                   \n                                                                               %c@%c#%c      %c+%c.%c.%c     %c#%c##%c:%c..%c:%c %c %c %c.%c..%c      %c %c %c............%c %c       %c %c,,%c,,%c  %c %c   %c %c  %c#%c#%c********%c#%c##%c*%c********%c#%c#%c     %c %c %c@%c %c                 \n                                                                               %c@%c       %c+%c+%c.%c %c    %c*%c#%c#%c*%c+%c  %c %c       %c %c    %c %c............%c.%c@%c       %c,%c,%c,%c+%c*%c %c      %c@%c#%c*****%c*%c##%c+%c#%c#%c**********%c#%c                           \n                                                                                        %c+%c.%c.%c     %c::%c:%c:%c:%c             %c*%c#%c.............%c.%c.%c       %c,%c*%c*%c*%c*%c*%c %c    %c#%c***%c#%c#%c*%c.%c.%c#%c#%c*%c**********%c#%c#%c                           \n                                                              %c#%c                         %c@%c+%c..%c     %c:%c.%c,%c,%c,%c@%c          %c@%c@%c................%c,%c        %c:%c++%c+%c*%c**%c*%c#%c#%c*%c#%c#%c..%c+%c#%c#%c*%c*%c**********%c*%c#%c                            \n                                                              %c#%c#%c                         %c+%c...%c,%c    %c,%c,%c,,%c*%c*%c@%c    %c   %c*%c*%c.%c..................%c,%c         %c,%c.%c:%c.%c.%c#%c#%c#%c:%c...%c:%c#%c#%c************%c#%c@%c                            \n                                                              %c %c#%c#%c#%c %c                      %c+%c.%c...%c.%c    %c %c.%c*%c*%c*%c*%c*%c*%c**%c*%c**%c*%c.%c.%c.%c:%c:%c+%c+%c++%c+%c.............%c,%c,%c    %c %c,%c.%c...%c+%c#%c:%c...%c#%c#%c*************%c*%c#%c                             \n                                          %c %c#%c#####%c#%c#%c#%c#####%c@%c %c    %c#%c#%c*%c*%c#%c#%c                    %c %c+%c.....%c.%c     %c:%c*%c*%c*%c*%c*%c*%c+%c+%c %c.%c+%c+%c.%c.................................%c#%c...%c#%c*%c**************%c#%c %c                             \n                                                %c@%c#%c#%c#%c*%c******%c*%c#%c#%c#%c@%c#%c#%c***%c*%c#%c#%c@%c                 %c*%c+%c.......%c,%c         %c,%c..%c+%c+%c............%c:%c......................%c:%c.%c:%c*%c#%c***************%c#%c                              \n                                                    %c %c#%c#%c#%c**%c*%c*%c***%c*%c*%c#%c#%c*%c***%c*%c*%c#%c#%c#%c %c              %c*%c+%c...................%c:%c+%c.%c+%c.........%c:%c.%c......................%c:%c+%c@%c#%c*%c**************%c#%c#%c                              \n                                           %c %c#%c###%c#%c#%c#%c#%c#%c#%c#%c#%c##%c*%c**%c*%c***%c**%c**%c*%c***%c**%c*%c*%c#%c#%c %c             %c+%c:%c..................%c+%c:%c................................%c:%c+%c:%c+%c %c#%c*%c*******%c#%c******%c#%c@%c                              \n                                      %c %c##%c#%c*%c**%c***%c*%c***%c*%c***%c*%c***%c*%c***%c*%c***%c*%c***%c*%c***%c*%c**%c*%c#%c#%c            %c@%c+%c:%c.................%c:%c+%c:%c.......%c:%c+%c+%c:%c.%c...............%c:%c+%c+%c.%c..%c+%c %c#%c#%c*******%c#%c*%c*****%c#%c#%c                              \n                                  %c %c##%c#%c******%c*%c**%c*%c*%c*%c*%c**%c**%c*%c*%c*%c*%c**%c**%c*%c*%c*%c*%c**%c**%c*%c*%c*%c*%c**%c**%c*%c*%c*%c#%c#%c            %c@%c+%c+%c.%c................%c.%c:%c+%c+++%c+%c:%c.................%c:%c+%c+%c.%c.....%c+%c+%c %c#%c********%c#%c*%c****%c*%c#%c                              \n                              %c %c#%c#%c#%c*%c****************%c*%c*******%c*%c*******%c*%c*******%c*%c*******%c*%c#%c@%c         %c#%c#%c**%c*%c++%c:%c..................................%c.%c+%c+%c:%c.%c........%c.%c+%c %c %c#%c********%c#%c*%c****%c#%c %c                             \n                      %c#%c#####%c#%c*%c***%c*%c*%c**%c****%c*%c*%c*%c*%c*%c***%c*%c***%c*%c***%c*%c***%c*%c***%c*%c***%c*%c***%c*%c***%c*%c***%c*%c***%c#%c#%c   %c %c#%c++%c#%c#%c******%c*%c+%c++%c:%c.%c........................%c.%c:%c++%c:%c.%c.............%c+%c@%c %c@%c#%c********%c#%c#%c*%c**%c*%c#%c                             \n                        %c#%c#%c*%c********************%c*%c#%c*******%c*%c*******%c*%c*******%c*%c*******%c*%c*****%c#%c*%c+%c:%c.%c..%c#%c#%c************%c*%c*%c+%c+++%c+%c:%c:%c:%c.%c.%c.%c.%c.%c.%c.%c:%c:%c:%c+%c++%c+%c:%c.%c..........%c.%c+%c*%c#%c@%c@%c@%c@%c@%c#%c %c %c %c#%c*%c*******%c*%c##%c#%c**%c#%c %c                           \n                           %c@%c#%c#%c*%c*%c**********%c*%c#%c#%c#%c#%c**%c**%c*%c***%c**%c**%c*%c***%c**%c**%c*%c***%c**%c**%c*%c***%c**%c**%c*%c*%c+%c:%c......%c#%c******************%c#%c#%c........................%c.%c@%c@%c#%c#%c***%c*%c*%c*%c*%c*%c*%c*%c*%c@%c %c %c#%c#%c*******%c#%c#%c %c %c@%c#%c##%c %c                         \n                                %c %c@%c@%c#%c#%c#%c#%c#%c#%c*%c*%c********%c*%c*******%c*%c*******%c*%c*******%c*%c******%c*%c+%c:%c.......%c*%c#%c******************%c*%c#%c:%c+%c+%c+%c:%c.................%c*%c@%c#%c**%c#%c+%c#%c+%c*%c*%c*%c*%c*****%c*%c@%c   %c#%c#%c*%c*****%c*%c#%c                               \n                                 %c %c#%c#%c*%c*%c*%c**%c*%c*%c*%c*%c*%c**%c*%c*%c*%c**%c*%c**%c*%c*%c*%c**%c*%c**%c*%c*%c*%c**%c*%c**%c*%c*%c*%c**%c*%c**%c*%c+%c+%c.........%c#%c#%c*******************%c#%c**%c*%c*%c*%c*%c#%c@%c#%c.%c...........%c@%c#%c**%c@%c#%c*%c+%c*%c+%c*%c+%c+%c*%c******%c@%c     %c %c#%c#%c*%c****%c#%c@%c                             \n                               %c@%c#%c*%c**********************************************%c+%c:%c..........%c#%c#%c*******************%c#%c#%c+%c*%c*%c+%c#%c@%c*%c*%c@%c@%c.........%c@%c#%c**%c@%c***%c*%c#%c#%c@%c@%c@@%c@%c@@%c@%c@%c@%c@%c        %c %c#%c#%c#%c*%c*%c*%c#%c@%c                           \n                             %c@%c#%c*%c*%c*%c*%c**%c****%c*%c*%c*%c**%c*%c**%c**%c***%c*%c**%c**%c***%c*%c**%c**%c***%c*%c#%c#######%c+%c:%c.......%c....%c:%c#%c***%c*%c****************%c#%c*%c*%c*%c*%c*%c*%c#%c@%c*%c#%c@%c........%c@%c**%c@@@%c#%c*%c+%c+++++++%c+%c++%c@%c@%c               %c %c@%c@%c#%c#%c                         \n                            %c#%c#%c**************%c*%c*%c*%c*%c*%c*%c***%c*%c*%c*%c*%c*%c***%c*%c*%c*%c*%c*%c*%c#%c#%c@%c        %c*%c+%c.%c:%c.%c.%c@%c@%c#%c@%c@%c#%c#%c@%c %c#%c*%c**%c#%c*%c************%c*%c***%c#%c#%c#%c@%c@@%c@@%c@%c@%c@%c#%c......%c:%c@@%c*%c++++++++%c+%c+%c*%c*%c*%c*%c**%c*%c@%c                                             \n                          %c@%c#%c*****************%c*%c*******%c*%c*******%c*%c***%c#%c#%c           %c+%c.%c@%c*%c@%c@%c#%c#%c#%c#%c#%c#%c#%c@%c@%c.%c#%c**%c#%c#%c*%c************%c#%c#%c#%c*%c#%c#%c++++++++%c*%c@%c+%c...%c*%c@%c+%c+++++%c+%c*%c************%c@%c                                             \n                         %c#%c#%c********************%c**%c**%c*%c***%c**%c**%c*%c***%c*%c#%c %c           %c+%c+%c.%c %c@%c#%c@%c#%c@%c@@%c@%c#%c#%c@%c#%c:%c#%c#%c*%c*%c##%c#%c************%c#%c#%c*%c*%c#%c#%c#%c++++++++%c*%c@%c+%c@%c*%c++++%c+%c*%c***************%c@%c %c                                            \n                        %c#%c*%c*********************%c*%c*%c**%c*%c***%c*%c*%c**%c*%c**%c*%c#%c             %c+%c.%c+%c#%c*%c@%c#%c#%c@%c@%c@%c@%c#%c#%c@%c#%c#%c*%c+%c#%c*%c#%c+%c*%c#%c*%c***********%c#%c*******%c*%c+%c+++++%c+%c@%c+%c++++%c*%c*****************%c@%c@%c                                            \n                       %c#%c*%c********************%c*%c***%c*%c***%c*%c***%c*%c***%c*%c#%c              %c+%c.%c@%c@%c@%c@%c#%c#%c@%c@%c@%c@%c#%c@%c@%c@%c#%c+%c++%c#%c##%c++%c#%c#%c**********%c#%c#%c*********%c+++++%c@%c++++%c+%c******************%c@%c@%c                                            \n                      %c#%c#%c*%c*%c**%c*%c****%c*%c**%c*%c****%c*%c*******************%c#%c@%c              %c+%c+%c@%c@%c@%c@%c@%c@%c@%c@%c@%c@%c@@%c@%c@%c#%c**%c*%c*%c*%c#%c#%c*%c#%c*%c#%c#%c*%c*******%c*%c#%c**********%c+++%c*%c*%c+%c+%c++%c*%c******************%c#%c@%c                                            \n                     %c@%c#%c*********************%c**%c*%c***%c*%c***%c*%c***%c*%c**%c#%c               %c+%c@%c@%c#%c@%c@%c@%c@%c@%c@@%c@%c@%c@%c@%c@%c###%c#%c*%c*%c*%c*%c*%c#%c*%c**%c#%c#%c******%c*%c#%c**********%c*%c++%c*%c*%c*%c+++%c*******************%c@%c@%c                                            \n                     %c#%c*%c***********************%c*%c**%c*%c*%c*%c**%c*%c**%c*%c*%c*%c*%c#%c               %c+%c..%c.%c:%c+%c@%c@%c#%c@%c@%c@%c %c*%c*%c:%c..%c+%c@%c***%c@%c******%c*%c#%c*%c****%c#%c#%c***********%c++%c+%c#%c+%c+++%c*******************%c@%c@%c                                            \n                    %c@%c#%c***********************%c*%c***%c*%c***%c*%c***%c*%c***%c#%c               %c+%c:%c....%c.%c.%c.%c#%c.%c.%c.%c.....%c:%c@%c***%c@%c********%c#%c***%c*%c#%c************%c*%c++%c@%c#%c+++%c*******************%c@%c %c                                            \n                    %c#%c*%c**********************%c*%c**%c*%c*%c**%c**%c**%c*%c*%c**%c**%c#%c@%c              %c@%c+%c..........%c+%c.....%c:%c@%c***%c@%c********%c#%c**%c#%c#%c*************%c*%c++%c#%c@%c+++%c*%c***************%c#%c*%c*%c@%c                                             \n                    %c#%c**************************%c*%c***%c*%c***%c*%c***%c*%c**%c#%c               %c+%c..........%c+%c......%c@%c***%c@%c********%c#%c*%c#%c#%c***************%c+++%c@%c++++%c****************%c@%c@%c@%c                                             \n                    %c#%c****%c*%c**%c*%c****%c*%c**%c*%c****%c*%c***%c*%c***%c**%c**%c*%c***%c**%c**%c*%c*%c#%c              %c+%c:%c.........%c+%c......%c@%c***%c@%c*%c******%c##%c#%c*%c@%c#%c**************%c+++%c@%c+%c+++%c**%c@%c********%c*%c@%c@%c@%c#%c#%c@%c                                              \n                    %c#%c*%c*%c*%c**%c*%c**%c*%c*%c*%c**%c*%c**%c*%c*%c*%c**%c*%c*%c*%c*%c*******%c*%c*******%c*%c*%c#%c#%c             %c %c+%c...%c.%c.....%c:%c+%c.....%c@%c#%c**%c#%c#%c*****%c#%c*****%c#%c@%c@%c@@%c@@%c@%c@%c@%c@%c@%c@%c#%c#%c+++%c#%c@%c+++%c+%c#%c#%c*******%c@%c#%c#####%c#%c@%c                                             \n                    %c#%c*%c*************************%c**%c**%c*%c***%c**%c**%c*%c***%c*%c#%c#%c             %c+%c:%c.%c.%c.%c.%c.%c.%c.%c..%c+%c.....%c*%c@%c**%c*%c@%c*********%c*%c@%c@%c*%c*************%c#%c@%c@%c@%c@%c++++%c@%c*******%c#%c@%c#######%c@%c %c                                            \n                    %c#%c*%c***********************%c*%c*%c*%c***%c*%c*%c*%c*%c*%c***%c*%c*%c*%c*%c*%c*%c*%c#%c            %c %c+%c.........%c:%c+%c.....%c@%c***%c@%c*%c*******%c@%c@%c********************%c*%c#%c@%c#%c+%c@%c*******%c@%c#%c#######%c#%c@%c                                            \n                    %c#%c#%c**********************%c*%c*******%c*%c*%c#%c*****%c*%c*****%c*%c#%c            %c+%c:%c....%c.%c.%c...%c+%c+%c....%c@%c#%c**%c@%c#%c******%c@%c#%c*************************%c#%c@%c@%c*%c*****%c@%c#########%c@%c %c                                           \n                    %c %c#%c*********%c*%c*************%c*%c*%c*%c*%c*%c*%c*%c*%c*%c##%c*%c*%c*%c*%c*%c*%c*%c*%c*%c*%c*%c*%c#%c           %c %c+%c.%c.%c........%c+%c+%c...%c:%c@%c***%c@%c*****%c@%c#%c****************%c@%c************%c#%c@%c#%c***%c@%c#########%c#%c@%c                                           \n                     %c#%c*%c*****%c*%c*%c#%c*****%c*%c********%c*%c*%c*%c***%c*%c*%c*%c*%c#%c#%c**%c*%c*%c*%c*%c*%c***%c*%c*%c#%c           %c+%c.%c..........%c.%c+%c.%c..%c@%c#%c**%c@%c#%c***%c@%c@%c*****************%c@%c***************%c#%c#%c*%c@%c#%c#########%c@%c                                           \n                     %c@%c#%c******%c#%c#%c*************************%c#%c#%c***********%c#%c#%c          %c@%c+%c.%c.%c.%c.%c.%c.......%c:%c+%c.%c.%c@%c**%c*%c@%c***%c@%c******************%c@%c#%c****************%c#%c#%c#%c#########%c@%c                                           \n                      %c#%c*%c****%c#%c#%c#%c**************%c*%c***%c*%c***%c*%c***%c*%c##%c*%c*%c***%c*%c***%c*%c#%c           %c+%c..............%c:%c+%c@%c#%c**%c#%c@%c*%c@%c@%c******************%c*%c@%c*****************%c#%c@%c#########%c@%c                                           \n                       %c#%c***%c#%c##%c*%c*************%c*%c*%c*%c*%c*%c**%c*%c*%c*%c*%c*%c*%c**%c#%c@%c#%c#%c*%c*%c**%c*%c*%c*%c#%c           %c+%c:%c..............%c:%c+%c+%c#%c@%c#%c@%c*%c@%c#%c*******************%c@%c#%c*****************%c@%c#########%c@%c                                           \n                       %c@%c#%c**%c#%c %c#%c*****************%c*%c***%c*%c***%c*%c***%c*%c#%c  %c@%c#%c*%c*%c*%c**%c#%c     %c*%c+%c:%c:%c.%c.%c+%c:%c.%c.%c.%c.%c..........%c+%c:%c:::::%c:%c@%c*********************%c@%c*%c****************%c#%c@%c########%c@%c                                           \n                        %c@%c#%c#%c#%c %c#%c***************%c*******%c*%c*******%c*%c#%c   %c %c#%c*%c*%c#%c#%c    %c+%c.%c.%c.%c.%c.%c.%c+%c.%c.%c.%c.%c.%c.........%c+%c:%c:::::::%c@%c*********************%c*%c@%c*%c**%c*%c@%c@%c@%c@@%c@%c@@@%c#%c#%c***%c#%c@%c#%c#%c###%c@%c@%c                                           \n                         %c@%c#%c  %c#%c*%c*****%c*%c********%c*%c*****%c*%c*%c*%c*****%c*%c*%c*%c#%c    %c#%c#%c#%c    %c+%c.%c......%c+%c.............%c+%c+%c:::::::%c:%c@%c**********************%c#%c#%c*%c@%c#%c############%c#%c@%c#%c*****%c*%c@%c                                            \n                          %c %c  %c#%c#%c*%c**%c*%c**%c*%c*%c*%c**%c*%c*%c***%c**%c**%c*%c***%c**%c**%c*%c**%c*%c#%c   %c#%c %c    %c+%c:%c....................%c:%c+%c+%c:::::::%c:%c@%c*********************%c#%c#%c*%c#%c@%c@%c#%c#############%c#%c@%c***%c*%c@%c                                             \n                              %c#%c********************%c*%c*******%c*%c***%c#%c#%c       %c*%c+%c.%c.%c.%c.%c.....%c.%c.%c.%c........%c:%c++%c+%c::::::::%c@%c********************%c#%c#%c***%c#%c#%c %c@%c@%c@%c#%c##########%c#%c@%c*%c@%c@%c                                              \n                              %c#%c#%c*************%c*%c***%c*%c*%c*%c*%c*%c***%c*%c*%c*%c*%c*%c**%c#%c#%c      %c+%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.%c.....%c:%c+%c %c+%c+%c::::::::%c@%c*******************%c#%c#%c*****%c*%c#%c %c   %c %c@%c@%c@%c@%c#%c#%c#%c#%c#%c@@%c@%c                                                \n                               %c#%c*%c***********%c*********************%c#%c %c    %c+%c:%c.....%c.%c.......%c.%c.%c....%c:%c+%c  %c+%c+%c::::::::%c@%c*%c*****************%c#%c#%c********%c#%c#%c                                                               \n                                %c#%c*%c**********%c*********************%c*%c#%c   %c %c+%c................%c...%c+%c+%c   %c#%c+%c:%c:::%c:%c:::%c@%c#%c*******%c*%c*******%c#%c#%c*%c***********%c#%c#%c                                                             \n                                 %c#%c#%c*********%c**********************%c#%c %c  %c+%c:%c.%c.%c..%c.%c....%c.%c..%c.%c...%c...%c+%c    %c@%c+%c:%c:::%c:%c:::%c+%c@%c*************%c*%c#%c#%c************%c*%c#%c.%c+%c*%c                                                           \n                                  %c#%c#%c********%c**********************%c#%c#%c  %c+%c..%c.%c..%c.%c....%c.%c..%c.%c......%c+%c    %c %c+%c:%c::%c::%c::%c::%c@%c***%c*%c***%c*%c***%c*%c#%c#%c**************%c#%c:%c..%c:%c+%c                                                          \n                                   %c %c#%c*%c******%c**********************%c#%c#%c %c+%c+%c.................%c.%c.%c.%c+%c     %c+%c:%c::%c::%c:%c:::%c@%c@%c********%c*%c#%c#%c***************%c#%c#%c.%c...%c:%c+%c                                                         \n                                     %c#%c#%c*****%c**********************%c#%c#%c %c+%c..................%c..%c.%c+%c     %c+%c:::::%c:%c:::%c:%c@%c******%c#%c#%c#%c****************%c*%c#%c......%c+%c                                                         \n                                       %c#%c#%c***%c**********************%c#%c %c %c+%c..................%c...%c+%c     %c+%c::::::::::%c@%c@%c**%c#%c#%c#%c*%c******************%c#%c:%c...%c.%c..%c+%c                                                         \n                                        %c@%c#%c*%c*%c**************%c#%c******%c*%c#%c %c#%c+%c..................%c...%c+%c     %c+%c:%c:::::::%c:%c:%c@%c#%c#%c#%c*%c********************%c#%c*%c.......%c+%c                                                         \n                                          %c#%c#%c**************%c#%c******%c#%c %c %c+%c:%c.%c.......%c.%c.......%c.%c.%c...%c+%c %c    %c+%c+%c:::::::::%c*%c#%c#%c*********************%c#%c*%c.......%c.%c+%c                                                         \n                                           %c %c#%c*%c***********%c#%c#%c*****%c#%c@%c  %c+%c.%c..................%c...%c+%c+%c    %c@%c+%c::%c::%c:::%c:%c:%c:%c@%c#%c*%c*******************%c#%c+%c......%c.%c.%c+%c*%c                                                         \n                                             %c#%c#%c**********%c##%c****%c#%c@%c   %c+%c....%c.%c..%c.%c....%c.%c..%c.%c...%c.%c.%c.%c.%c+%c     %c+%c::%c::%c::%c::%c::%c@%c*%c#%c*%c****************%c*%c#%c.%c.%c.%c..%c.%c.%c..%c.%c+%c                                                          \n                                              %c#%c#%c********%c#%c@%c#%c**%c*%c#%c %c    %c+%c...................%c....%c+%c %c    %c+%c:%c:::%c:%c:%c::%c:%c:%c %c %c@%c#%c*%c**************%c#%c#%c..........%c+%c %c                                                          \n                                               %c#%c*******%c#%c#%c@%c#%c*%c#%c#%c      %c+%c.%c.%c.......%c.%c.......%c.%c.%c....%c:%c+%c    %c+%c:%c:::%c:%c::::%c %c@%c@%c %c@%c#%c*%c***********%c*%c#%c+%c..........%c+%c*%c                                                           \n                                               %c#%c#%c*****%c#%c@%c %c#%c#%c#%c       %c %c+%c.%c.%c.......%c.%c.......%c.%c.%c.%c.%c..%c.%c+%c    %c#%c+%c::::::::%c %c@%c@%c@%c@%c+%c#%c#%c********%c*%c#%c#%c..%c.%c..%c.%c.%c.%c..%c.%c+%c*%c                                                            \n                                               %c@%c#%c***%c*%c#%c %c %c#%c %c         %c %c+%c...................%c.....%c+%c+%c    %c+%c:::::::::%c %c@%c@%c@%c %c@%c#%c#%c******%c#%c#%c.%c.%c.......%c.%c..%c+%c#%c                                                             \n                                               %c#%c#%c**%c#%c#%c              %c %c+%c...................%c......%c+%c    %c+%c:%c:%c:%c:::%c:%c:::%c %c %c %c@%c@%c@%c@%c#%c#%c*%c*%c#%c*%c............%c.%c+%c %c                                                              \n                                               %c#%c*%c#%c#%c                %c %c+%c...................%c.%c..%c.%c..%c:%c+%c   %c+%c+%c::%c:::%c:%c::%c:%c %c %c %c %c@%c@@%c@%c@%c#%c*%c..%c.%c....%c.%c..%c.%c.%c.%c+%c*%c %c %c %c                                                             \n                                              %c##%c@%c                   %c+%c...................%c.......%c+%c %c  %c %c+%c::%c:%c:::%c::%c:%c*%c %c@%c@%c@%c#%c#%c#%c#%c#%c*%c*%c++%c:%c.%c...%c.%c:%c++%c@%c@%c@%c#%c#%c#%c@%c %c                                                           \n                                             %c@%c                      %c+%c....%c.%c.......%c.%c......%c.......%c.%c+%c   %c+%c:%c:%c:%c:::%c:%c:::%c %c@%c@%c#%c#%c#%c*%c*%c#%c#%c#%c#%c#%c#%c#%c#%c#%c#%c#%c*%c*%c@%c %c@%c@%c@%c#%c@%c@%c#%c                                                           \n                                                                    %c+%c..%c.%c.%c..%c.%c.%c..%c.%c.%c..%c.%c.%c..%c.%c........%c+%c+%c  %c+%c+%c:%c:::::::%c:%c %c@%c %c##%c#%c*%c#%c#%c@%c@%c@@@@@@%c@%c@%c#%c*%c*%c@%c %c@%c@%c@%c#%c@%c@%c#%c@%c %c                                                        \n                                                                    %c+%c...................%c.........%c+%c %c  %c+%c:::::::::%c@%c %c@%c@%c %c#%c*%c*%c#%c@%c@%c@@@%c@@@%c@%c@%c@%c#%c*%c@%c@%c %c@%c@%c#%c@%c#%c#%c#%c@%c                                                        \n                                                                    %c+%c.%c..................%c.........%c.%c+%c  %c+%c:%c::%c:%c:%c:%c:%c:%c:%c:%c %c %c@%c@%c#%c#%c*%c#%c@%c@%c@%c@@@@@@%c@%c@%c#%c*%c*%c@%c@%c@%c@%c@%c#%c#%c@%c %c                                                         \n                                                                    %c+%c:%c.%c.......%c.%c.......%c.%c.%c..........%c:%c+%c %c#%c+%c:::%c:%c:::%c:%c:%c %c %c@%c+%c@%c#%c*%c#%c#%c@%c@%c@@@@@@%c@%c@%c#%c#%c*%c@%c %c@%c@%c#%c#%c@%c@%c@%c %c                                                        \n                                                                    %c#%c+%c..................%c.%c.%c....%c.%c..%c.%c.%c+%c*%c %c+%c::%c::%c::%c::%c:%c@%c %c %c#%c %c#%c*%c*%c#%c@%c@%c@@@@@@%c@%c@%c@%c#%c*%c#%c %c@%c@%c#%c#%c#%c@%c %c %c                                                        \n                                                                     %c+%c..................%c............%c+%c@%c@%c+%c:%c:%c:%c:%c:%c:%c:%c:%c:%c %c %c@%c@%c#%c#%c*%c#%c#%c@%c@%c@%c@%c@%c@%c@%c@%c@%c#%c#%c*%c#%c@%c@%c %c %c %c@%c %c %c %c %c                                                       \n                                                                     %c+%c..................%c...%c.%c.......%c.%c.%c+%c %c %c+%c:%c:::::%c:%c:%c %c %c@%c %c#%c#%c*%c*%c#%c#%c@%c@%c#%c#%c#%c#%c#%c*%c*%c*%c#%c@%c@@%c %c#%c %c#%c %c %c@%c.%c+%c                                                      \n                                                                     %c+%c:%c.................%c..............%c+%c %c %c %c*%c+%c+%c:%c:%c:%c:%c+%c@%c@%c@%c#%c#%c#%c#%c*%c*%c*%c*%c*%c*%c#%c#%c@%c@%c@%c@%c@%c %c@%c#%c#%c@%c@%c#%c@%c@%c..%c:%c+%c                                                     \n                                                                     %c@%c+%c.................%c...............%c+%c          %c %c@@%c %c#%c#%c#%c#%c#%c#%c#%c@%c@%c %c@%c@%c@%c##%c@%c %c %c@%c@%c@%c@%c@%c %c %c...%c+%c+%c                                                    \n                                                                      %c#%c+%c.%c..%c.%c.%c..%c.%c.%c..%c.%c.%c..%c.%c...............%c+%c %c         %c %c %c %c@@@@@%c@%c@%c@%c@%c  %c@%c@%c*%c#%c %c@%c@%c %c %c %c*%c.%c.......%c+%c+%c                                                   \n                                                                        %c@%c+%c+%c:%c.%c...........%c............%c.%c:%c+%c@%c           %c %c %c@%c %c@%c@%c@%c@%c@%c %c@%c@%c#%c*%c:%c..%c.%c...............%c+%c+%c                                                  \n                                                                             %c@%c@%c*%c+%c+++++%c+%c+%c+++%c+%c++%c+%c+%c*%c#%c@%c %c               %c+%c+%c................................%c+%c+%c                                                 \n                                                                                                                    %c+%c.................................%c+%c+%c                                                \n                                                                                                                    %c*%c+%c.................................%c+%c@%c                                               \n                                                                                                                     %c %c+%c+%c.%c.%c....%c.%c..%c.%c....%c.%c..%c.%c....%c.%c..%c.%c....%c:%c+%c                                                \n                                                                                                                        %c %c#%c++%c+%c+%c:%c:%c.%c.%c.........%c.%c.%c.%c:%c:%c:%c+%c+%c++%c#%c %c                                                 \n                                                                                                                                   %c %c %c %c %c %c %c %c                                                              \n                                                                                                                                                                                                        \n                                                                                                                                                                                                        \n                                                                                                                                                                                                        \n                                                                                                                                                                                                        \n                                                                                                                                                                                                        \n',
+	    m+'000000',m+'170F05',m+'5E4019',m+'4A3213',m+'1A1106',m+'000000',m+'434756',m+'747C96',
+	    m+'62697F',m+'000000',m+'010000',m+'181006',m+'462F12',m+'5E4019',m+'6B471B',m+'764D1D',
+	    m+'7E521E',m+'85551F',m+'895820',m+'8B5921',m+'8B5920',m+'895820',m+'84551F',m+'7D511E',
+	    m+'734B1C',m+'67451A',m+'5E4019',m+'5B3E17',m+'1F1507',m+'020100',m+'000000',m+'291C0A',
+	    m+'5E4019',m+'714B1C',m+'A26524',m+'875720',m+'614119',m+'5E4019',m+'2E1F0C',m+'000000',
+	    m+'747C96',m+'BFC6D7',m+'BFC5D7',m+'9AA2B7',m+'747C96',m+'675441',m+'8A5820',m+'A26524',
+	    m+'A26624',m+'A26524',m+'A26624',m+'A26524',m+'A26624',m+'A26524',m+'8E5B21',m+'69461B',
+	    m+'5E4019',m+'5B3E17',m+'5A3D18',m+'5E4019',m+'84551F',m+'A26524',m+'A26624',m+'955E22',
+	    m+'5E4019',m+'593C17',m+'000000',m+'040405',m+'000000',m+'211708',m+'5D4018',m+'747C96',
+	    m+'BEC6D6',m+'9CA4B9',m+'747C96',m+'9C6832',m+'A16624',m+'A26624',m+'A16624',m+'A26624',
+	    m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',
+	    m+'A16624',m+'A26624',m+'A16624',m+'7F521E',m+'5D4018',m+'81541F',m+'A26624',m+'A16624',
+	    m+'875620',m+'5D4018',m+'0E0903',m+'000000',m+'24272F',m+'747C96',m+'BEC5D6',m+'8C93AB',
+	    m+'747C96',m+'61687E',m+'000000',m+'31200C',m+'5E4018',m+'7D511E',m+'A26624',m+'A16624',
+	    m+'747C96',m+'BDC4D5',m+'BEC6D6',m+'8B93AA',m+'7D859E',m+'757C96',m+'A26624',m+'A16624',
+	    m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',
+	    m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',
+	    m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'9C6324',m+'5F4119',
+	    m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'8A5820',m+'5E4018',m+'010000',m+'717991',
+	    m+'7B839C',m+'BEC6D6',m+'B0B7CA',m+'757D97',m+'747C96',m+'030304',m+'000000',m+'5D4018',
+	    m+'66441A',m+'A16624',m+'A26624',m+'A16624',m+'7A7A88',m+'777F99',m+'BEC6D6',m+'747C96',
+	    m+'BEC6D6',m+'BEC5D6',m+'747C96',m+'6C6567',m+'5E4018',m+'5F4019',m+'67451A',m+'6E491B',
+	    m+'744C1C',m+'784F1D',m+'7B501E',m+'7D511E',m+'7C501E',m+'7B501E',m+'8D5A21',m+'A16524',
+	    m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',
+	    m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'747C96',m+'8C94AB',m+'BEC6D6',
+	    m+'AEB6C9',m+'747C96',m+'61687D',m+'000000',m+'5D4018',m+'6B471B',m+'8D5A21',m+'714A1C',
+	    m+'5E4018',m+'747C96',m+'BEC6D6',m+'969EB4',m+'777F99',m+'BEC6D6',m+'99A1B6',m+'747C96',
+	    m+'A16625',m+'A16624',m+'757C96',m+'868EA6',m+'BEC6D6',m+'B4BBCE',m+'BEC6D6',m+'7E869F',
+	    m+'747C96',m+'000000',m+'050301',m+'5C3F17',m+'191106',m+'000000',m+'2E1F0B',m+'5E4018',
+	    m+'5E4019',m+'885720',m+'A16624',m+'757C96',m+'868EA5',m+'BEC6D6',m+'747C96',m+'807678',
+	    m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',
+	    m+'A16624',m+'827574',m+'757D97',m+'BEC6D6',m+'838BA3',m+'BEC6D6',m+'838BA3',m+'747C96',
+	    m+'000000',m+'0A0702',m+'5D4019',m+'5E4019',m+'905C21',m+'A16525',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'757C96',m+'BEC6D6',m+'757C97',m+'9AA1B7',
+	    m+'757C97',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'757C97',m+'BEC6D6',m+'ABB2C6',m+'969EB4',m+'BEC6D6',m+'757D97',m+'636980',
+	    m+'000000',m+'020100',m+'5D4019',m+'604119',m+'9F6424',m+'A16525',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'777B91',m+'7C849D',m+'BEC6D6',m+'757C97',m+'BEC6D6',
+	    m+'757C97',m+'887265',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'777B8F',m+'7B839C',m+'BEC6D6',m+'757C97',m+'BDC4D6',m+'8A92A9',m+'BEC6D6',
+	    m+'AEB6C9',m+'757C97',m+'000000',m+'251909',m+'5D4018',m+'8B5920',m+'A16525',m+'A16625',
+	    m+'757C97',m+'BEC5D6',m+'BEC6D6',m+'BCC4D5',m+'8088A1',m+'878FA6',m+'BEC6D6',m+'878FA7',
+	    m+'757C96',m+'A16625',m+'757C97',m+'BEC5D6',m+'BEC6D6',m+'757C97',m+'BAC1D3',m+'767E98',
+	    m+'BEC6D6',m+'757C97',m+'1A1C22',m+'000000',m+'2C1E0B',m+'5D4019',m+'9C6324',m+'A16525',
+	    m+'A16624',m+'867369',m+'757D97',m+'BEC5D6',m+'BDC4D5',m+'BEC6D6',m+'828AA2',m+'757C96',
+	    m+'996A3A',m+'A16624',m+'757C97',m+'BEC6D6',m+'B6BED0',m+'757C96',m+'B6BED1',m+'B6BED2',
+	    m+'8C93AB',m+'A6AEC2',m+'BEC6D6',m+'757C97',m+'3A3E4B',m+'000000',m+'030200',m+'5D4019',
+	    m+'925D22',m+'A16525',m+'A26525',m+'A16525',m+'A16624',m+'757C97',m+'ACB4C7',m+'BEC6D6',
+	    m+'B6BDCF',m+'7A829B',m+'BEC6D6',m+'767E97',m+'797A8C',m+'A16624',m+'757C97',m+'BEC6D6',
+	    m+'BAC1D3',m+'757C96',m+'B3BBD0',m+'B2BACF',m+'757C97',m+'BEC6D6',m+'757C96',m+'21232A',
+	    m+'000000',m+'583B17',m+'614119',m+'A26525',m+'A16525',m+'A16625',m+'A16525',m+'A26525',
+	    m+'A16525',m+'A16625',m+'A16624',m+'A16625',m+'9F672A',m+'757C97',m+'BEC6D6',m+'9BA2B7',
+	    m+'838BA3',m+'BEC6D6',m+'A0A7BC',m+'757C97',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'757C97',m+'BEC6D6',m+'757C97',m+'B0B8CE',m+'B0B9CE',
+	    m+'B0B8CE',m+'B0B9CE',m+'757C97',m+'BEC6D6',m+'757C97',m+'000000',m+'5D4019',m+'875720',
+	    m+'A16525',m+'A16624',m+'787B8E',m+'7A829B',m+'BEC6D6',m+'98A0B5',m+'757D97',m+'BEC5D6',
+	    m+'BEC6D6',m+'BABFCD',m+'B5B9C5',m+'73788D',m+'916C4B',m+'A16624',m+'757C97',m+'BEC6D6',
+	    m+'757C97',m+'A0A9C0',m+'ACB6CC',m+'ACB5CC',m+'ACB6CC',m+'9CA5BD',m+'757C97',m+'BEC6D6',
+	    m+'ADB4C7',m+'757C97',m+'000000',m+'5D4018',m+'986023',m+'A16525',m+'A16625',m+'A16624',
+	    m+'A16625',m+'757C97',m+'788099',m+'757D97',m+'73798F',m+'685C53',m+'5E411D',m+'5D4018',
+	    m+'6A471B',m+'82541F',m+'975F23',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'757C97',m+'A6AEC2',m+'BEC6D6',m+'A3AABF',
+	    m+'757C97',m+'A9B3CA',m+'A9B2CA',m+'A9B3CA',m+'A9B2CA',m+'A9B3CA',m+'A9B2CA',m+'A9B3CA',
+	    m+'757C97',m+'9299B0',m+'BEC6D6',m+'757C97',m+'101215',m+'000000',m+'5D4019',m+'905C21',
+	    m+'A16525',m+'A16624',m+'A16524',m+'794F1D',m+'5E4018',m+'764D1D',m+'9D6324',m+'A16624',
+	    m+'8D7058',m+'757C97',m+'BEC6D6',m+'757C97',m+'9099B3',m+'A6B0C8',m+'A0A9C2',m+'757C97',
+	    m+'BEC6D6',m+'A2AABE',m+'757C97',m+'000000',m+'5A3D17',m+'66441A',m+'A16525',m+'8D5A21',
+	    m+'A16525',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'986023',m+'5E4019',
+	    m+'5D4018',m+'865620',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'757C97',m+'BBC2D4',m+'BEC6D6',m+'757C97',m+'A2ACC6',m+'A2ADC6',
+	    m+'757C97',m+'BCC3D4',m+'BEC6D6',m+'757C97',m+'000000',m+'5D4018',m+'A16525',m+'7D511E',
+	    m+'5D4018',m+'724B1C',m+'A16525',m+'A16624',m+'A16524',m+'604119',m+'5E4019',m+'986023',
+	    m+'A16624',m+'986A3D',m+'757C97',m+'BEC6D6',m+'BAC1D2',m+'757C97',m+'9FAAC4',m+'757C97',
+	    m+'A7AEC2',m+'BEC6D6',m+'757C97',m+'000000',m+'5D4019',m+'784E1D',m+'A16525',m+'9A6223',
+	    m+'5E4019',m+'573B17',m+'5D4019',m+'734B1C',m+'A16525',m+'A16625',m+'915C21',m+'5E4019',
+	    m+'774E1D',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'777B91',m+'7C849D',m+'BEC6D7',m+'B8C0D1',m+'747C97',m+'9CA7C2',
+	    m+'9CA7C3',m+'757D97',m+'8A91A9',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',
+	    m+'BEC6D7',m+'747C97',m+'000000',m+'5D4019',m+'A16525',m+'66441A',m+'5D4019',m+'080502',
+	    m+'0F0A04',m+'5D4019',m+'9F6424',m+'A16525',m+'955E22',m+'5D4019',m+'83551F',m+'A16625',
+	    m+'747C97',m+'99A1B6',m+'BEC6D7',m+'BEC5D6',m+'747C97',m+'919CB8',m+'99A4C1',m+'8089A3',
+	    m+'757D97',m+'BEC6D7',m+'747C97',m+'000000',m+'5D4019',m+'A16525',m+'8D5A21',m+'5D4019',
+	    m+'34230D',m+'000000',m+'2F200C',m+'5D4019',m+'935E22',m+'A16525',m+'5D4019',m+'6F491B',
+	    m+'A16625',m+'757C96',m+'AAB1C5',m+'BEC6D7',m+'757D97',m+'78819B',m+'95A1BF',m+'747C97',
+	    m+'BEC6D7',m+'BEC5D6',m+'747C97',m+'5C3E17',m+'000000',m+'0A0602',m+'5D4019',m+'A16525',
+	    m+'794F1D',m+'5D4019',m+'070501',m+'010000',m+'483113',m+'5D4019',m+'A16524',m+'A16525',
+	    m+'A16625',m+'9D6324',m+'A16625',m+'8C5921',m+'66441A',m+'5E4019',m+'6A5131',m+'898B97',
+	    m+'AAB2C5',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'A7AEC2',m+'747C97',m+'909CBA',m+'929EBD',
+	    m+'8590AC',m+'747C97',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',
+	    m+'7C849D',m+'777B91',m+'A16625',m+'7E521E',m+'5E4019',m+'020200',m+'000000',m+'0F0A04',
+	    m+'5D4019',m+'A16525',m+'84551F',m+'5D4019',m+'020100',m+'000000',m+'5D4019',m+'69461A',
+	    m+'A16525',m+'A16625',m+'81541F',m+'5E4019',m+'A16625',m+'885720',m+'5E4019',m+'5F421B',
+	    m+'A09C9C',m+'BEC6D7',m+'7A829B',m+'757D97',m+'7C85A1',m+'757D97',m+'BEC6D7',m+'757C97',
+	    m+'A16625',m+'614219',m+'573B17',m+'000000',m+'030201',m+'5D4019',m+'A16525',m+'5D4019',
+	    m+'2B1D0B',m+'000000',m+'5D4019',m+'8C5A21',m+'A16525',m+'A16625',m+'7D511E',m+'5E4019',
+	    m+'79654E',m+'5E4019',m+'A16625',m+'955F22',m+'5E4019',m+'6B5334',m+'BEC5D6',m+'BEC6D6',
+	    m+'BAC0D1',m+'5D6069',m+'101113',m+'000000',m+'151618',m+'6A6E77',m+'BEC5D6',m+'BEC6D6',
+	    m+'BEC6D7',m+'BEC6D6',m+'BEC5D6',m+'757D97',m+'7B839C',m+'BEC6D7',m+'0F0F11',m+'BEC6D6',
+	    m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'747C97',m+'837571',m+'A16625',m+'6C471B',
+	    m+'5D3F18',m+'000000',m+'5D4019',m+'A16524',m+'5D4019',m+'000000',m+'5D4019',m+'9C6223',
+	    m+'A16525',m+'A16625',m+'84551F',m+'5D4019',m+'5E4019',m+'938A82',m+'BEC6D6',m+'BEC6D7',
+	    m+'5E4019',m+'9A6123',m+'A16625',m+'8A5820',m+'5E4019',m+'9D9794',m+'BEC6D7',m+'33353A',
+	    m+'000000',m+'0A0A0A',m+'B7B7B7','',m+'7B7B7B',m+'000000',m+'020202',m+'BCC3D3', m +
+	    'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'6D717A',m+'000000',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7', m +
+	    '7E869F',m+'757C94',m+'A16625',m+'5E4019',m+'201608',m+'000000',m+'5D4019',m+'000000', m +
+	    '5D4019',m+'9F6424',m+'A16525',m+'A16625',m+'976023',m+'6C481B',m+'5E4019',m+'5F411B', m +
+	    '9A938F',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'867768',m+'5E4019',m+'A16625',m+'A16524', m +
+	    '5E4019',m+'897C6F',m+'BEC6D7',m+'A6ACBA',m+'000000',m+'0D0D0D', '',m+'F2F9F2',m+'43AD48',
+	    m+'0A9411',m+'099411',m+'0A9411',m+'099411',m+'89CB8C',m+'060606',m+'000000',m+'BEC6D6',
+	    m+'6F737D',m+'000000',m+'BEC5D6',m+'BEC6D6',m+'BEC6D7',m+'4A4D54',m+'BEC6D6',m+'BEC6D7',
+	    m+'79819B',m+'777B91',m+'A16625',m+'A16524',m+'5D4019',m+'000000',m+'573B16',m+'030200',
+	    m+'000000',m+'5D4019',m+'9E6424',m+'A16525',m+'A16625',m+'9B6223',m+'724B1C',m+'5E4019',
+	    m+'5D4019',m+'8A7D70',m+'BEC5D6',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'5E4019',m+'8F5B21',
+	    m+'A16625',m+'8A5820',m+'5E4019',m+'BEC6D6',m+'000000',m+'121212', '',m+'2EA334', m +
+	    '0A9410',m+'0A9411',m+'0A9410',m+'0A9411',m+'099411',m+'0A9411',m+'0A9410',m+'0A9411', m +
+	    '0A9410',m+'08840F',m+'000000',m+'BEC6D6',m+'BEC6D7',m+'676B74',m+'1A1B1D',m+'BEC5D6', m +
+	    '747C97',m+'8C705A',m+'A16625',m+'5D4019',m+'050301',m+'000000',m+'5D4019',m+'986023', m +
+	    'A16525',m+'A16625',m+'A16524',m+'7D511E',m+'5D4019',m+'7E6E5C',m+'BCC2D2',m+'BEC6D6', m +
+	    'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'5D4019',m+'A16625', m +
+	    '81531F',m+'5D4019',m+'BEC6D7',m+'727680',m+'000000',m+'F1F1F1', '',m+'91CF94',m+'0A9411',
+	    m+'219E27',m+'B7E0B9',m+'B7DFB9',m+'B6B9B6',m+'ACADAC',m+'000500',m+'000400',m+'000A00',
+	    m+'099310',m+'0A9411',m+'099310',m+'000000',m+'B9C0D0',m+'BEC6D6',m+'383A3F',m+'000000',
+	    m+'404248',m+'788099',m+'787B8F',m+'A16625',m+'65441A',m+'593C17',m+'000000',m+'5D4019',
+	    m+'885720',m+'A16525',m+'A16625',m+'A06524',m+'714A1C',m+'5E4019',m+'584518',m+'1E7F12',
+	    m+'0A9411',m+'011101',m+'000000',m+'B9C0D0',m+'BEC6D7',m+'5E4019',m+'A16625',m+'9D6324',
+	    m+'5E4019',m+'BEC6D7',m+'383A3F',m+'000000', '',m+'249F2B',m+'0A9411',m+'B7E0B9', m +
+	    'B6B7B6',m+'000500',m+'000E01',m+'0A9411',m+'07630C',m+'000000',m+'9196A3',m+'767E98', m +
+	    '64513D',m+'9E6424',m+'A16625',m+'8C5A21',m+'5D4019',m+'000000',m+'5D4019',m+'734B1C', m +
+	    'A16525',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'7F521E',m+'5E4019', m +
+	    '5A4318',m+'198412',m+'0A9411',m+'044908',m+'000400',m+'000F01',m+'000000',m+'070808', m +
+	    'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'5E4019',m+'A16625', m +
+	    '5D4019',m+'B0B1B9',m+'BEC6D7',m+'737781',m+'000000', '',m+'3DAA43',m+'0A9311',m+'B7E0B9',
+	    m+'B7DFB9',m+'B6B7B6',m+'000500',m+'0A9311',m+'000000',m+'9197A4',m+'BEC6D6',m+'B9BECC',
+	    m+'5D4019',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16524',m+'5D4019',m+'000000',m+'593D17',m+'65441A',m+'A16525',m+'A16524',
+	    m+'6C481B',m+'A16525',m+'A16625',m+'6F491C',m+'5E4019',m+'586C2F',m+'0A9411',m+'33A639',
+	    m+'C3C3C3',m+'000400',m+'000200',m+'000000',m+'B9BFD0',m+'BEC6D7',m+'5E4019',m+'83541F',
+	    m+'5E4019',m+'BEC6D7',m+'000000',m+'F2F2F2', '',m+'F5FAF5',m+'0A9411',m+'B7E0BA', m +
+	    'B7E0B9',m+'B7E0BA',m+'B6B7B6',m+'000500',m+'076A0C',m+'052407',m+'000000',m+'0E0E10', m +
+	    '5E4019',m+'915C22',m+'A16625',m+'A16525',m+'5D4019',m+'000000',m+'533816',m+'614119', m +
+	    'A16525',m+'9E6424',m+'5D4019',m+'A16525',m+'A16625',m+'7D511E',m+'5E4019',m+'9A876F', '',
+	    m+'0A9411',m+'BAE0BC',m+'C3C3C3',m+'000400',m+'000300',m+'000000',m+'9DA3B1',m+'BEC6D7',
+	    m+'9A9490',m+'5E4019',m+'867869',m+'BEC6D7',m+'0E0E10',m+'000000', '',m+'0D9714', m +
+	    '0F9716',m+'B9E0BB',m+'B6B8B6',m+'B6B7B6',m+'A7A8A7',m+'000500',m+'41A44D',m+'BEC6D7', m +
+	    '5E4019',m+'724B1C',m+'A16625',m+'A16525',m+'5D4019',m+'000000',m+'573B17',m+'634219', m +
+	    'A16525',m+'7F521E',m+'5D4019',m+'0A0602',m+'5D4019',m+'A16525',m+'A16524',m+'5E4019', m +
+	    '5F411A', '', '',m+'48AF4D',m+'099411',m+'95D098',m+'C4D7C5',m+'C3C3C3',m+'000400', m +
+	    '000300',m+'000000',m+'B6BDCD',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7', m +
+	    '5D4019',m+'BEC5D6',m+'BEC6D6',m+'000000',m+'C7C7C7', '',m+'139C1A',m+'43B049',m+'BBE2BD',
+	    m+'B6B7B6',m+'000400',m+'000500',m+'000400',m+'000500',m+'000400',m+'4BA958',m+'5D4019',
+	    m+'7E521E',m+'A16625',m+'A16525',m+'5D4019',m+'1D1307',m+'000000',m+'5D4019',m+'744C1C',
+	    m+'A16525',m+'905C21',m+'5D4019',m+'563B16',m+'000000',m+'5D4019',m+'7E521E',m+'A16525',
+	    m+'A06524',m+'5D4019',m+'4E3514',m+'000000', '',m+'0A9411',m+'C4E4C7',m+'C3C3C3', m +
+	    '000400',m+'000300',m+'000000',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'000000', '', '', m +
+	    '19A220',m+'1FA426',m+'BCE3BE',m+'B6B7B6',m+'B5B6B5',m+'090E0A',m+'B6B7B6',m+'000501', m +
+	    '0F0E04',m+'5E4019',m+'9E6324',m+'A16625',m+'A16525',m+'83551F',m+'5D4019',m+'000000', m +
+	    '080502',m+'5D4019',m+'9D6324',m+'84551F',m+'5D4019',m+'5C3E17',m+'010100',m+'000000', m +
+	    '0A0702',m+'5D4019',m+'A16525',m+'5E4019',m+'553B19',m+'2A2D36',m+'2C2E32',m+'303236', '',
+	    m+'0A9411',m+'0B9512',m+'239F29',m+'C5E6C7',m+'C3C3C3',m+'BABABA',m+'000400',m+'000000',
+	    m+'27282C',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'000000', '', '', m +
+	    '1FA727',m+'1FA827',m+'32AF3A',m+'BEE5C0',m+'B6B7B6',m+'141814',m+'010501',m+'B6B7B6', m +
+	    '000401',m+'000501',m+'573B17',m+'5F4019',m+'A16625',m+'A16524',m+'A16625',m+'A16525', m +
+	    '5D4019',m+'000000',m+'020100',m+'5D4019',m+'231708',m+'000000',m+'5D4019',m+'976023', m +
+	    '6D481B',m+'5D4019',m+'000000',m+'757D97',m+'BEC5D6',m+'BEC6D6', '',m+'109917',m+'109A18',
+	    m+'119B19',m+'C7E6C8',m+'C3C8C3',m+'C3C3C3',m+'000400',m+'3D403D',m+'9EA09E',m+'000501',
+	    m+'000400',m+'000000',m+'BEC6D6',m+'000000',m+'ECECEC', '',m+'9CEFA4',m+'9EEFA6', m +
+	    '9DEFA5',m+'91EE9A',m+'010601',m+'010501',m+'010601',m+'4A4D4A',m+'B6B7B6',m+'787A78', m +
+	    '010601',m+'010501',m+'040801',m+'5E4019',m+'915C22',m+'A16625',m+'9F6424',m+'895820', m +
+	    'A16625',m+'5E4019',m+'704A1C',m+'A16525',m+'A26525',m+'9B6223',m+'5D4019',m+'000000', m +
+	    '241909',m+'412D11',m+'090602',m+'000000',m+'5D4019',m+'130D05',m+'000000',m+'697188', m +
+	    '7A829B',m+'BEC6D7', '',m+'4FB655',m+'169F1D',m+'16A01E',m+'C8E8C9',m+'C7E7C9',m+'C3C3C3',
+	    m+'C2C3C2',m+'000501',m+'ABACAB',m+'C3C3C3',m+'C2C3C2',m+'000501',m+'000401',m+'000501',
+	    m+'010501',m+'000000',m+'BEC6D7',m+'121314',m+'111111', '',m+'91EE9A',m+'98EFA1', m +
+	    '97EE9F',m+'94EE9C',m+'09140A',m+'010601',m+'3C2B10',m+'5E4019',m+'A16625',m+'905C21', m +
+	    '5E4019',m+'9D6324',m+'A16625',m+'5E4019',m+'000000',m+'5C3E17',m+'5D4019',m+'81541F', m +
+	    '9D6324',m+'5D4019',m+'060401',m+'000000',m+'452F12',m+'5D4019',m+'000000',m+'757D97', m +
+	    'BEC6D7',m+'C6CCDB', '',m+'1CA424',m+'1CA524',m+'7ECC82',m+'C3C4C3',m+'9E9F9E',m+'010602',
+	    m+'000501',m+'010501',m+'C2C3C2',m+'C3C4C3',m+'010501',m+'010401',m+'000000',m+'BEC6D7',
+	    m+'000000', '', '',m+'D3FAD6',m+'D4FAD7',m+'010501',m+'010601',m+'010501',m+'010601', m +
+	    '010501',m+'583C17',m+'614219',m+'A16625',m+'84551F',m+'5D4019',m+'A06524',m+'A16625', m +
+	    '744C1C',m+'5D4019',m+'000000',m+'090602',m+'160E05',m+'1B1206',m+'020100',m+'000000', m +
+	    '422D11',m+'000000',m+'6D758E',m+'7D859E',m+'BEC6D7', '', '',m+'3FB546',m+'21AA2A', m +
+	    '23AB2B',m+'35B53D',m+'61D069',m+'010501',m+'010401',m+'010501',m+'010401',m+'010501', m +
+	    '000000',m+'BEC6D7',m+'B6BDCD',m+'161616', '',m+'EBFCEC',m+'D6FAD8',m+'D3FAD6',m+'5BCB63',
+	    m+'35BD3F',m+'010702',m+'010602',m+'4A3414',m+'5F4019',m+'A16625',m+'8C5A21',m+'5E4019',
+	    m+'897B6D',m+'5E4019',m+'66441A',m+'A16625',m+'5E4019',m+'000000',m+'747C97',m+'BEC5D6',
+	    m+'BEC6D6', '',m+'92EE9B',m+'93EE9C',m+'94EE9C',m+'91EE99',m+'010501',m+'2BA033', m +
+	    '44474D',m+'BEC6D6',m+'BAC1D2',m+'CECECE', '',m+'ECF9ED',m+'3EC348',m+'3CC346',m+'3BC245',
+	    m+'3EC347',m+'3BC245',m+'091E0A',m+'020602',m+'5D4019',m+'A16625',m+'764D1D',m+'5D4019',
+	    m+'79664F',m+'BEC5D6',m+'BEC6D6',m+'634723',m+'5E4019',m+'A16524',m+'A16625',m+'634219',
+	    m+'543916',m+'000000',m+'5E4019',m+'000000',m+'1F2128',m+'747C96',m+'BEC6D6', '', m +
+	    '97EEA0',m+'99EFA1',m+'D1F9D4',m+'D3FAD6',m+'D5FAD8',m+'1C251C',m+'010501',m+'19571E', m +
+	    '17501B',m+'BEC6D6',m+'F5F6F9', '',m+'96E09C',m+'54CD5D',m+'4ACA54',m+'41C84B',m+'41C74B',
+	    m+'40C74B',m+'52752C',m+'64431A',m+'A16624',m+'624219',m+'5E401A',m+'BEC5D6',m+'857666',
+	    m+'5E4019',m+'794F1D',m+'A16624',m+'9E6324',m+'A16624',m+'A16524',m+'5E4019',m+'000000',
+	    m+'5E4019',m+'5D4019',m+'000000',m+'747C96',m+'BEC6D6',m+'F6F7F9', '',m+'D6FAD9', m +
+	    'D4FAD7',m+'D3FAD6',m+'37BD40',m+'36BD40',m+'113114',m+'010502',m+'010602',m+'3BC245', m +
+	    '3CC346',m+'B8BFCF',m+'BEC6D6',m+'F3F4F7', '',m+'E9F9EB',m+'A9E7AE',m+'9AE39F',m+'A7E7AC',
+	    m+'CAE3D4',m+'664C2A',m+'774E1D',m+'5E4019',m+'ABAAB0',m+'BEC6D6',m+'A9A8AD',m+'5E4019',
+	    m+'81531F',m+'A16624',m+'5E4019',m+'1B1207',m+'000000',m+'020200',m+'5E4019',m+'6E491B',
+	    m+'5D4019',m+'020100',m+'000000',m+'747C96',m+'AEB5C8',m+'BEC6D6',m+'C0C7D8', '', '', m +
+	    'BBF0BF',m+'42C44B',m+'40C349',m+'3BC245',m+'40C449',m+'3DC446',m+'3DC447',m+'3EC548', m +
+	    '3FC649',m+'40C74A',m+'41C84B',m+'B5BCCB',m+'BEC6D6',m+'B9C0D1',m+'9BA3B8',m+'8A91A9', m +
+	    '7E869F',m+'777F98',m+'747C96',m+'878FA7',m+'BEC6D6',m+'D6DAE5',m+'F3F5F8', '', '', m +
+	    'E5E8EF',m+'C5CBDA',m+'BEC6D6',m+'8C8074',m+'5E4018',m+'B1B3BC',m+'BEC6D6',m+'5E4019', m +
+	    '6B471B',m+'A16624',m+'986023',m+'5E4018',m+'000000',m+'170F06',m+'593C17',m+'5E4019', m +
+	    '614119',m+'624219',m+'604119',m+'5E4019',m+'3D290F',m+'110C04',m+'000000',m+'593C17', m +
+	    '734B1C',m+'A16625',m+'8E5A21',m+'5E4019',m+'563B16',m+'000000',m+'0E0F12',m+'747C96', m +
+	    'BEC6D6',m+'C4CBDA', '',m+'86DB8D',m+'41C84B',m+'41C84C',m+'42C94C',m+'43C94D',m+'43CA4E',
+	    m+'44CB4E',m+'45CB4F',m+'4CCE56', '',m+'BEC6D6',m+'767E98',m+'788099',m+'BEC5D6', m +
+	    'BEC6D6',m+'5E4019',m+'BEC6D6',m+'5E4019',m+'875720',m+'A16624',m+'5E4019',m+'110B04', m +
+	    '000000',m+'211608',m+'5D4019',m+'5E4019',m+'7A501E',m+'A16524',m+'A16624',m+'9F6424', m +
+	    '7E521E',m+'5E4019',m+'5D4019',m+'30200C',m+'5B3E18',m+'6D481B',m+'A16624',m+'955F22', m +
+	    '5F4019',m+'5E4019',m+'1B1207',m+'000000',m+'656B82',m+'788099',m+'BEC6D6',m+'D4D8E4', '',
+	    m+'E2E6ED',m+'BEC6D6',m+'858DA5',m+'757D97',m+'BEC6D6',m+'A4ABBF',m+'BEC6D6',m+'ACADB3',
+	    m+'BEC6D6',m+'ABB2C5',m+'665648',m+'5E4019',m+'A16624',m+'5E4018',m+'000000',m+'040301',
+	    m+'563B16',m+'5E4019',m+'84551F',m+'A16624',m+'A16524',m+'A16625',m+'A16624',m+'A16625',
+	    m+'9F6424',m+'724B1C',m+'5F4119',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'80531F',
+	    m+'5E4019',m+'5C3E17',m+'040301',m+'000000',m+'4A5061',m+'757D97',m+'BEC6D6',m+'8991A9',
+	    m+'757D97',m+'BEC6D6',m+'7A829B',m+'BEC6D6',m+'A3ABBF',m+'BCC3D4',m+'BEC6D6',m+'ABB2C5',
+	    m+'747C96',m+'22242C',m+'5E4019',m+'8D5A21',m+'A16624',m+'7B501E',m+'5E4019',m+'000000',
+	    m+'181006',m+'563B16',m+'5E4019',m+'69461A',m+'714A1C',m+'744C1C',m+'734B1C',m+'6D481B',
+	    m+'66441A',m+'5E4019',m+'5D4019',m+'5E4019',m+'895820',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'9E6324',m+'634219',
+	    m+'5E4019',m+'100B04',m+'000000',m+'747C96',m+'9FA6BB',m+'BEC6D6',m+'747C96',m+'8E96AD',
+	    m+'BEC6D6',m+'8F97AD',m+'747C96',m+'9FA7BC',m+'747C96',m+'000000',m+'5E4019',m+'915C22',
+	    m+'A16624',m+'604119',m+'A16624',m+'5E4019',m+'493112',m+'000000',m+'100B04',m+'5E4018',
+	    m+'744C1D',m+'9D6324',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A06524',m+'5F4019',m+'5E4019',m+'000000',
+	    m+'131519',m+'747C96',m+'9DA5BA',m+'BEC6D6',m+'98A0B6',m+'747C96',m+'9FA6BB',m+'BEC6D6',
+	    m+'A3ABBF',m+'757D97',m+'747C96',m+'9199AF',m+'BDC4D5',m+'BEC6D6',m+'ABB3C6',m+'747C96',
+	    m+'79819B',m+'BEC5D6',m+'BEC6D6',m+'747C96',m+'000000',m+'4E3514',m+'614119',m+'A16624',
+	    m+'64431A',m+'9B6223',m+'A16624',m+'634319',m+'563A16',m+'000000',m+'090602',m+'5E4018',
+	    m+'7F521E',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16525',m+'A16624',m+'A16524',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16525',m+'A16624',m+'A16524',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16525',m+'A16624',m+'A16524',m+'A16625',m+'A16624',m+'A16625',m+'A16525',
+	    m+'A16624',m+'A16524',m+'A16625',m+'A16624',m+'A16625',m+'A16525',m+'A16624',m+'6D481B',
+	    m+'5E4019',m+'000000',m+'3C2C19',m+'747C96',m+'767E98',m+'BBC2D3',m+'BEC6D6',m+'BEC5D6',
+	    m+'949CB2',m+'757D97',m+'747C96',m+'7F869F',m+'A4ABBF',m+'BEC6D6',m+'A2A9BD',m+'747C96',
+	    m+'767E98',m+'B8BFD1',m+'BEC6D6',m+'7C849D',m+'6C748D',m+'000000',m+'5E4019',m+'A16624',
+	    m+'5E4019',m+'A06524',m+'A16624',m+'925D22',m+'5E4019',m+'000000',m+'090602',m+'593C17',
+	    m+'5E4018',m+'744C1C',m+'A16524',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'5E4019',m+'3A270F',m+'000000',
+	    m+'5E4018',m+'704A1C',m+'A16624',m+'916E4F',m+'747C96',m+'A3AABF',m+'BEC6D6',m+'AEB5C8',
+	    m+'79819A',m+'747C96',m+'8E96AC',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'747C96',m+'000000',
+	    m+'0E0A03',m+'5E4018',m+'A16624',m+'5E4018',m+'8A5920',m+'A16624',m+'5E4018',m+'070501',
+	    m+'000000',m+'4E3414',m+'5E4018',m+'66441A',m+'885720',m+'A16624',m+'A26624',m+'A16624',
+	    m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A16625',m+'A16624',
+	    m+'8A5920',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'64431A',m+'593C17',m+'000000',m+'020303',m+'404452',m+'747C96',
+	    m+'5E4018',m+'7C501E',m+'A16624',m+'A16625',m+'867369',m+'747C96',m+'8991A8',m+'B0B7CA',
+	    m+'BEC6D6',m+'B5BCCE',m+'8C94AB',m+'747C96',m+'949CB2',m+'BEC5D6',m+'BEC6D6',m+'747C96',
+	    m+'141519',m+'000000',m+'1A1207',m+'5E4018',m+'A16624',m+'6D481B',m+'5E4018',m+'A16524',
+	    m+'A16624',m+'A16524',m+'5E4018',m+'000000',m+'513715',m+'5E4019',m+'945E22',m+'A16624',
+	    m+'8C5A21',m+'614119',m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16524',
+	    m+'A16624',m+'A16524',m+'A16624',m+'5E4019',m+'5C5E6B',m+'747C96',m+'8B92AA',m+'BEC5D6',
+	    m+'BEC6D6',m+'6A5131',m+'634219',m+'A16624',m+'A16625',m+'916E4D',m+'7F777D',m+'747C96',
+	    m+'7C839D',m+'8E95AC',m+'9DA4B9',m+'A9B0C4',m+'B3BACC',m+'B9C1D2',m+'BDC4D5',m+'BEC5D6',
+	    m+'BDC4D5',m+'B9C1D2',m+'B2BACC',m+'A8B0C3',m+'9CA3B8',m+'8C94AB',m+'79819A',m+'747C96',
+	    m+'7E869E',m+'A0A8BC',m+'BEC5D6',m+'BEC6D6',m+'AFB6C7',m+'7B8495',m+'525D6C',m+'333E4E',
+	    m+'192534',m+'182433',m+'182333',m+'182433',m+'1B2737',m+'374254',m+'000001',m+'000000',
+	    m+'010000',m+'5E4019',m+'996023',m+'A16624',m+'8E5B21',m+'5E4019',m+'7A501E',m+'A16624',
+	    m+'5E4019',m+'140E05',m+'000000',m+'432E11',m+'5E4018',m+'63431A',m+'885720',m+'A16524',
+	    m+'A16624',m+'9F6424',m+'83551F',m+'614219',m+'5E4019',m+'7C511E',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'986A3D',m+'757C96',m+'8B92AA',m+'BEC6D6',m+'5E4019',m+'A16624',m+'7B501E',
+	    m+'5E4018',m+'BEC6D6',m+'B1B9C9',m+'232F3E',m+'182433',m+'223044',m+'364966',m+'405476',
+	    m+'405575',m+'4A5C72',m+'3F5475',m+'3E5374',m+'3F5374',m+'3F5475',m+'405476',m+'3E5373',
+	    m+'182433',m+'070B10',m+'000000',m+'4E3514',m+'5E4019',m+'A16624',m+'7D511E',m+'5E4019',
+	    m+'000000',m+'0A0702',m+'493213',m+'5E4018',m+'5E4019',m+'030200',m+'000000',m+'0A0602',
+	    m+'1F1508',m+'37250E',m+'513815',m+'5E4018',m+'5E4019',m+'67451A',m+'714A1C',m+'7F521E',
+	    m+'915C22',m+'A16524',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'9F672B',m+'757D97',m+'98A0B5',m+'BEC6D6',m+'756047',
+	    m+'604119',m+'A16624',m+'925D22',m+'5E4019',m+'949CAC',m+'757E8F',m+'707989',m+'7E8797',
+	    m+'9FA7B8',m+'BEC6D6',m+'646E7E',m+'182333',m+'374A67',m+'405476',m+'30415B',m+'8E8C5E',
+	    m+'2E3941',m+'8E8C5E',m+'3D5272',m+'405476',m+'687169',m+'5D696C',m+'405476',m+'3F5475',
+	    m+'182433',m+'000000',m+'543915',m+'5E4019',m+'9E6424',m+'A16624',m+'915D22',m+'5E4019',
+	    m+'000000',m+'181006',m+'5E4018',m+'82541F',m+'A26624',m+'A16624',m+'A26624',m+'A16624',
+	    m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A16625',m+'A16624',m+'A16524',m+'A16625',
+	    m+'A16524',m+'A16624',m+'A16625',m+'A16624',m+'A16524',m+'A16625',m+'A16524',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16524',m+'A16625',m+'A16524',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16524',m+'A16625',m+'A16524',m+'A16624',m+'A16625',m+'A16624',m+'A16524',m+'7B7987',
+	    m+'757D97',m+'BEC6D6',m+'5E4019',m+'7F521E',m+'A16624',m+'5E4019',m+'405476',m+'405575',
+	    m+'54646F',m+'415575',m+'3D5171',m+'27374D',m+'182333',m+'293443',m+'BEC5D6',m+'BEC6D6',
+	    m+'182433',m+'2C3D55',m+'405476',m+'182534',m+'2C3D55',m+'405476',m+'8E8C5E',m+'405575',
+	    m+'8E8C5E',m+'405476',m+'8D8C5E',m+'87885F',m+'717866',m+'405476',m+'182433',m+'000000',
+	    m+'110C04',m+'5E4019',m+'66441A',m+'9F6424',m+'A16624',m+'5E4019',m+'402B11',m+'000000',
+	    m+'2F1F0C',m+'5E4018',m+'996123',m+'A16624',m+'757D96',m+'8C94AB',m+'BEC6D6',m+'5F411B',
+	    m+'734C1C',m+'A16624',m+'614119',m+'5C4526',m+'818361',m+'405476',m+'475A73',m+'818361',
+	    m+'243347',m+'182433',m+'3E5374',m+'405476',m+'1E2B3D',m+'192434',m+'BEC6D6',m+'182433',
+	    m+'2A3A51',m+'405476',m+'182333',m+'405476',m+'3F5475',m+'324460',m+'26364B',m+'1C2939',
+	    m+'182333',m+'182433',m+'182333',m+'182433',m+'1E2935',m+'182333',m+'162130',m+'111A25',
+	    m+'000000',m+'030200',m+'503614',m+'5E4019',m+'64431A',m+'885720',m+'A16524',m+'9B6223',
+	    m+'5E4018',m+'281B0A',m+'000000',m+'1A1107',m+'5E4018',m+'9A6123',m+'A16624',m+'A26624',
+	    m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'976023',m+'734C1C',m+'5E4019',m+'757D96',m+'939BB1',
+	    m+'BEC6D7',m+'BEC6D6',m+'A5A2A4',m+'5E4019',m+'A16624',m+'9B6223',m+'A16624',m+'5E4019',
+	    m+'455166',m+'526270',m+'53636F',m+'4A5C72',m+'405475',m+'405476',m+'2F415A',m+'1B2839',
+	    m+'405476',m+'384B68',m+'182333',m+'BEC6D6',m+'182333',m+'405476',m+'182433',m+'2B353A',
+	    m+'656951',m+'969564',m+'989664',m+'979664',m+'989664',m+'263138',m+'162130',m+'000000',
+	    m+'090602',m+'211608',m+'3E2A10',m+'583C17',m+'5C3E17',m+'000000',m+'5E4018',m+'82541F',
+	    m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16524',
+	    m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16524',
+	    m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'764D1D',m+'5E4019',m+'30200C',m+'000000',
+	    m+'60687D',m+'788099',m+'BEC5D6',m+'9AA0AE',m+'AFB6C6',m+'BEC5D6',m+'1C1C1D',m+'242323',
+	    m+'44464C',m+'1B1B1B',m+'1F1E1E',m+'353636',m+'343535',m+'252424',m+'030303',m+'5E4019',
+	    m+'9A6123',m+'A16624',m+'6A471B',m+'9C6324',m+'A16624',m+'925D22',m+'A16624',m+'5E4018',
+	    m+'353530',m+'303A3C',m+'242E37',m+'182433',m+'182333',m+'182433',m+'202E41',m+'182433',
+	    m+'384352',m+'BEC6D6',m+'8B93A4',m+'182433',m+'5C614D',m+'989664',m+'959565',m+'7C826A',
+	    m+'67726E',m+'566571',m+'4A5C74',m+'415675',m+'405575',m+'3D5272',m+'182333',m+'000000',
+	    m+'3B280F',m+'5E4018',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'64431A',m+'5E4019',m+'000000',m+'757D96',m+'BEC6D6',m+'101316',m+'6D6765',
+	    m+'272B2F',m+'1F1F1F',m+'424444',m+'125B58',m+'08615D',m+'08605C',m+'085D5A',m+'096460',
+	    m+'2E4B49',m+'1F1F1F',m+'181A1C',m+'BDC3D3',m+'5E4018',m+'A16624',m+'784E1D',m+'5E4018',
+	    m+'965F22',m+'A16624',m+'704A1C',m+'5E4018',m+'634319',m+'8F5B21',m+'614119',m+'60431C',
+	    m+'979664',m+'555B4A',m+'172433',m+'8A93A3',m+'BEC6D6',m+'4D5867',m+'172333',m+'949463',
+	    m+'979664',m+'818569',m+'415675',m+'405476',m+'172433',m+'000000',m+'5E4018',m+'724B1C',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'9C6223',m+'5E4019',m+'010000',m+'000000',m+'717992',m+'7F87A0',m+'B3BACA',
+	    m+'0F1011',m+'242223',m+'3C3D3E',m+'1A1A1A',m+'08625E',m+'023933',m+'012E28',m+'012F29',
+	    m+'054B47',m+'155754',m+'1B1A1A',m+'413F42',m+'AAAFBD',m+'504B45',m+'5E4019',m+'A16624',
+	    m+'9F6424',m+'5E4019',m+'6D481B',m+'A16624',m+'5E4019',m+'494E58',m+'405476',m+'42526C',
+	    m+'4B4C51',m+'514941',m+'5E523C',m+'989664',m+'696D52',m+'182333',m+'7E8798',m+'182433',
+	    m+'6E7154',m+'989664',m+'979665',m+'405575',m+'405476',m+'182333',m+'010202',m+'000000',
+	    m+'5E4018',m+'8E5A21',m+'A16624',m+'A16625',m+'A16524',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16524',m+'A16624',m+'A16625',m+'A16624',m+'955E22',m+'5E4019',m+'000000',
+	    m+'757D97',m+'BEC5D6',m+'757882',m+'54534E',m+'5C575B',m+'191A1A',m+'393938',m+'085A56',
+	    m+'01322C',m+'022F29',m+'022F28',m+'01302A',m+'06514C',m+'234846',m+'201F1F',m+'403F41',
+	    m+'4F4F4F',m+'5E5E5E',m+'81807F',m+'5E4018',m+'955E22',m+'5E4018',m+'818180',m+'746859',
+	    m+'5E4019',m+'9F6424',m+'A16624',m+'5E4018',m+'405476',m+'405575',m+'929266',m+'989664',
+	    m+'979664',m+'182433',m+'82835C',m+'989664',m+'6C766D',m+'405476',m+'182433',m+'0C121A',
+	    m+'000000',m+'5E4018',m+'905C21',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'5E4019',m+'000000',m+'757C96',
+	    m+'BEC6D6',m+'131312',m+'232321',m+'1C1C1E',m+'171616',m+'1C4442',m+'07534F',m+'01332E',
+	    m+'01322C',m+'01322D',m+'023731',m+'085B57',m+'2D3131',m+'282728',m+'191D22',m+'4E4E4E',
+	    m+'7F7F7F',m+'818181',m+'634928',m+'5E4018',m+'818181',m+'5C4321',m+'5E4019',m+'A16624',
+	    m+'604119',m+'564531',m+'405476',m+'989664',m+'182333',m+'989664',m+'949465',m+'405476',
+	    m+'1D2B3C',m+'172332',m+'000000',m+'5E4018',m+'764D1D',m+'A16624',m+'A26624',m+'A16624',
+	    m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',
+	    m+'5E4019',m+'412C11',m+'000000',m+'757D96',m+'878B98',m+'171819',m+'1F1F1F',m+'121416',
+	    m+'2D2D2E',m+'252526',m+'1B3232',m+'15302F',m+'1C3535',m+'1E3131',m+'142423',m+'252526',
+	    m+'2E2E2F',m+'121518',m+'4E4E4E',m+'707070',m+'6D6D6D',m+'696969',m+'646464',m+'604523',
+	    m+'595045',m+'575757',m+'4F4F4F',m+'485468',m+'5A4326',m+'5E4019',m+'A16524',m+'A16624',
+	    m+'8E5A21',m+'5E4019',m+'405476',m+'989664',m+'6F6F5C',m+'585858',m+'949364',m+'979664',
+	    m+'989664',m+'405575',m+'405476',m+'233146',m+'182433',m+'000000',m+'1F1508',m+'5E4018',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'5E4019',m+'000000',m+'757D96',m+'2B2D30',m+'14181C',m+'3B3B3B',
+	    m+'1F2428',m+'131516',m+'2C201B',m+'711A00',m+'24201E',m+'232323',m+'6B1900',m+'330E02',
+	    m+'2C2C2B',m+'1F2327',m+'121213',m+'4E4E4E',m+'515151',m+'545454',m+'575757',m+'5A5A5A',
+	    m+'5D5D5D',m+'606060',m+'4E4E4E',m+'435A7D',m+'435B80',m+'5A4324',m+'5E4019',m+'A16624',
+	    m+'865620',m+'5E4019',m+'405476',m+'405575',m+'989664',m+'64645A',m+'555556',m+'63625A',
+	    m+'989664',m+'405476',m+'202E41',m+'182433',m+'000000',m+'5E4018',m+'A16524',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'5E4019',m+'000000',m+'757D97',m+'BEC6D6',
+	    m+'BDC4D5',m+'999FAC',m+'7A7F8A',m+'2D2F33',m+'431C10',m+'333232',m+'6D1900',m+'32201B',
+	    m+'431B0F',m+'160E0C',m+'5D6068',m+'6D717B',m+'949AA7',m+'BEC6D6',m+'8C919C',m+'2F2F2F',
+	    m+'666666',m+'2F2F2F',m+'435B80',m+'435A7F',m+'5E4019',m+'996123',m+'A16624',m+'5E4019',
+	    m+'4C4C4E',m+'405476',m+'989664',m+'828260',m+'4E5052',m+'85865D',m+'989664',m+'405476',
+	    m+'182433',m+'0E151F',m+'000000',m+'231709',m+'5E4018',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'5E4019',m+'000000',
+	    m+'757D96',m+'9BA2B8',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'673C32',m+'B4B8C7',
+	    m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'8F949F',m+'2F2F2F',m+'666666',m+'2F2F2F',m+'435B80',
+	    m+'5E4019',m+'A16624',m+'85561F',m+'5E4018',m+'405476',m+'6C766D',m+'989664',m+'182333',
+	    m+'474E45',m+'989664',m+'405476',m+'182333',m+'010202',m+'000000',m+'5E4018',m+'8C5A21',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16525',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16525',m+'A16624',m+'A16625',m+'5E4019',m+'412C11',m+'000000',m+'262931',
+	    m+'757D96',m+'BEC6D6',m+'7D859E',m+'BEC6D6',m+'ACB2C1',m+'2F2F2F',m+'666666',m+'2F2F2F',
+	    m+'435B80',m+'5E4018',m+'A16624',m+'7B501E',m+'5E4018',m+'405476',m+'425675',m+'979664',
+	    m+'4C5247',m+'172433',m+'979664',m+'636F6F',m+'405476',m+'27374D',m+'3F5475',m+'405476',
+	    m+'172433',m+'000000',m+'5E4018',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'5E4019',m+'000000',m+'757D96',m+'BEC6D6',
+	    m+'747C96',m+'BEC6D6',m+'2F2F2F',m+'666666',m+'2F2F2F',m+'435B80',m+'5E4019',m+'A16524',
+	    m+'5E4019',m+'52473B',m+'405476',m+'989664',m+'182433',m+'989664',m+'405476',m+'1D2A3C',
+	    m+'1E2B3D',m+'182333',m+'000000',m+'5E4018',m+'A16624',m+'A26624',m+'A16624',m+'A26624',
+	    m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'915C21',m+'5E4019',m+'000000',m+'757C96',m+'9199AF',m+'BEC6D6',m+'7B839C',m+'BEC6D6',
+	    m+'2F2F2F',m+'666666',m+'2F2F2F',m+'3E506C',m+'435B80',m+'5E4019',m+'55483A',m+'435B80',
+	    m+'1B2839',m+'354764',m+'405476',m+'989664',m+'182433',m+'8C8C60',m+'989664',m+'405476',
+	    m+'182433',m+'405476',m+'3F5373',m+'272638',m+'242130',m+'2D283B',m+'373148',m+'3E3851',
+	    m+'182333',m+'000000',m+'5E4018',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',
+	    m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',
+	    m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A16625',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'7F521E',m+'5E4019',m+'000000',m+'000001',
+	    m+'747D96',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'ABB2C5',m+'7C849D',m+'BEC6D6',m+'2F2F2F',
+	    m+'515151',m+'666666',m+'323232',m+'303236',m+'435B80',m+'534A3F',m+'435B80',m+'374C6C',
+	    m+'1A2636',m+'212F42',m+'182333',m+'182433',m+'192535',m+'182433',m+'182333',m+'182433',
+	    m+'182333',m+'182433',m+'26354A',m+'3F5066',m+'989664',m+'37403F',m+'182433',m+'989664',
+	    m+'898C67',m+'223044',m+'364966',m+'405476',m+'252233',m+'38334A',m+'494360',m+'47415E',
+	    m+'182333',m+'000000',m+'5E4019',m+'A26624',m+'A16624',m+'A16625',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'83541F',m+'5D4019',
+	    m+'000000',m+'747D96',m+'A5ADC1',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',
+	    m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'747C96',m+'BEC6D6',m+'606268',m+'2F2F2F',m+'666666',
+	    m+'5E5E5E',m+'2F2F2F',m+'435B80',m+'40587C',m+'182333',m+'1A2737',m+'3E5373',m+'405476',
+	    m+'334560',m+'1C293A',m+'182433',m+'222D37',m+'182333',m+'989664',m+'182333',m+'405476',
+	    m+'37445F',m+'272334',m+'494360',m+'182433',m+'090F15',m+'000000',m+'5E4019',m+'A16524',
+	    m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16525',m+'A16624',m+'A16524',
+	    m+'85561F',m+'A16524',m+'A16624',m+'A16525',m+'A16624',m+'A16524',m+'A16624',m+'A16524',
+	    m+'A16624',m+'8F5B21',m+'5E4019',m+'000000',m+'040506',m+'757D96',m+'BEC6D6',m+'A1A9BD',
+	    m+'747C96',m+'BEC6D6',m+'2F2F2F',m+'666666',m+'2F2F2F',m+'425A7F',m+'435B80',m+'182434',
+	    m+'1B2838',m+'405476',m+'3F5475',m+'233246',m+'182433',m+'30393C',m+'979664',m+'182333',
+	    m+'405476',m+'242130',m+'48415E',m+'494360',m+'494260',m+'182433',m+'000000',m+'5E4019',
+	    m+'7C501E',m+'A16624',m+'A26624',m+'A16625',m+'A26624',m+'A16625',m+'5E4019',m+'A16625',
+	    m+'A26624',m+'A16625',m+'996123',m+'5E4019',m+'000000',m+'757D96',m+'AAB1C5',m+'BEC6D7',
+	    m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'7B839C',m+'777F98',m+'BEC6D6',m+'2F2F2F',m+'4B4B4B',
+	    m+'666666',m+'313131',m+'303236',m+'435B80',m+'182333',m+'344662',m+'405476',m+'32445F',
+	    m+'182333',m+'182434',m+'3D5272',m+'405476',m+'242130',m+'494360',m+'182433',m+'05070B',
+	    m+'000000',m+'0E0903',m+'5E4018',m+'A16624',m+'9F6424',m+'A16624',m+'A16524',m+'A16624',
+	    m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'794F1D',
+	    m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16524',m+'A16624',m+'A16524',
+	    m+'A16624',m+'A16524',m+'A16624',m+'9B6223',m+'5E4019',m+'000000',m+'08080A',m+'747C96',
+	    m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'8189A1',m+'757D97',m+'BEC6D6',m+'A9AFBE',m+'2F2F2F',
+	    m+'666666',m+'2F2F2F',m+'435B80',m+'182333',m+'334561',m+'405476',m+'192535',m+'405476',
+	    m+'32445E',m+'182333',m+'25344A',m+'405476',m+'242130',m+'494360',m+'35364E',m+'182333',
+	    m+'000000',m+'5E4019',m+'A16524',m+'A16624',m+'A26624',m+'A16624',m+'5E4019',m+'A16624',
+	    m+'A26624',m+'A16624',m+'A16524',m+'A16624',m+'A16625',m+'A16624',m+'A16525',m+'A16624',
+	    m+'A16524',m+'A16624',m+'5E4019',m+'744C1C',m+'A16624',m+'A16525',m+'A16624',m+'A16524',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16525',m+'925D22',m+'5E4019',m+'000000',m+'757D96',
+	    m+'B4BBCD',m+'BEC6D6',m+'B1B8CB',m+'747C96',m+'B4BBCD',m+'BEC6D6',m+'2F2F2F',m+'535353',
+	    m+'666666',m+'2F2F2F',m+'343A44',m+'435B80',m+'1C293A',m+'192636',m+'405476',m+'172333',
+	    m+'405476',m+'223144',m+'243347',m+'405476',m+'242130',m+'48425F',m+'494360',m+'172333',
+	    m+'000000',m+'291C0A',m+'5E4019',m+'A16624',m+'5E4018',m+'5E4019',m+'A16624',m+'714A1C',
+	    m+'5D4019',m+'A16624',m+'624219',m+'543916',m+'000000',m+'242730',m+'757D96',m+'BEC6D7',
+	    m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'8C94AB',m+'747C96',m+'B5BCCE',
+	    m+'B3BAC9',m+'2F2F2F',m+'666666',m+'656565',m+'2F2F2F',m+'435B80',m+'182433',m+'405476',
+	    m+'182534',m+'384B68',m+'405476',m+'374A67',m+'2D3146',m+'39344B',m+'494360',m+'182333',
+	    m+'000000',m+'5E4018',m+'965F22',m+'A16624',m+'5E4019',m+'5E4018',m+'81531F',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'5E4019',
+	    m+'A06524',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'5D4019',m+'000000',
+	    m+'757D96',m+'BEC6D6',m+'A5ADC1',m+'747C96',m+'2F2F30',m+'393939',m+'666666',m+'383838',
+	    m+'2F2F30',m+'435B80',m+'1F2D40',m+'182433',m+'405476',m+'3E5272',m+'182433',m+'405476',
+	    m+'3B4D6B',m+'252131',m+'494360',m+'182333',m+'000000',m+'5E4018',m+'A16624',m+'7C501E',
+	    m+'5E4018',m+'A06524',m+'A16624',m+'A16625',m+'A16524',m+'A16624',m+'A16525',m+'A16625',
+	    m+'A16624',m+'A16525',m+'A16625',m+'A16524',m+'A16624',m+'A16525',m+'A16625',m+'A16624',
+	    m+'5E4019',m+'31210C',m+'5E4019',m+'754C1D',m+'A16525',m+'A16625',m+'A16624',m+'A16525',
+	    m+'A16625',m+'A16524',m+'5E4019',m+'000000',m+'757C96',m+'A4ACC0',m+'BEC6D6',m+'ABB3C6',
+	    m+'747C96',m+'8C919F',m+'323334',m+'2F2F2F',m+'363636',m+'2F2F2F',m+'3F5270',m+'182333',
+	    m+'3A4E6C',m+'405476',m+'182433',m+'28384F',m+'405476',m+'242130',m+'494360',m+'182333',
+	    m+'000000',m+'241809',m+'5E4018',m+'A16624',m+'5E4018',m+'000000',m+'5E4018',m+'A16624',
+	    m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'5E4019',
+	    m+'000000',m+'422D11',m+'5E4019',m+'925D22',m+'A16624',m+'A16625',m+'A16624',m+'5E4019',
+	    m+'000000',m+'555A6E',m+'757D96',m+'8C94AB',m+'A9B0C4',m+'B7BED0',m+'B8C0D1',m+'767E98',
+	    m+'8C93AA',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'747C96',m+'AAB0C2',
+	    m+'ABB1C3',m+'8F95A3',m+'182433',m+'405476',m+'182333',m+'3F5374',m+'405476',m+'3A4A67',
+	    m+'252131',m+'494360',m+'182333',m+'000000',m+'422D11',m+'634219',m+'6C471B',m+'5C3E17',
+	    m+'000000',m+'5E4018',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A06424',m+'5E4019',
+	    m+'000000',m+'171006',m+'5E4019',m+'A16524',m+'A16624',m+'634219',m+'513815',m+'000000',
+	    m+'757D96',m+'BCC3D4',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'767E98',
+	    m+'AEB5C8',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'747C96',m+'8D94AA',
+	    m+'ABB1C3',m+'182333',m+'405476',m+'3D5171',m+'182333',m+'3F5475',m+'405476',m+'3D5070',
+	    m+'262435',m+'242130',m+'282435',m+'2D283C',m+'2A2537',m+'242130',m+'2B2D41',m+'36425C',
+	    m+'405476',m+'2B2E42',m+'242130',m+'332E43',m+'423B57',m+'494360',m+'1C2637',m+'15212E',
+	    m+'000000',m+'3E2A10',m+'5E4018',m+'000000',m+'5E4018',m+'986023',m+'A16624',m+'A26624',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16524',m+'A16624',m+'A16625',m+'A16624',m+'A16524',
+	    m+'A16624',m+'9C6223',m+'5E4019',m+'000000',m+'5E4019',m+'68451A',m+'5B3E17',m+'000000',
+	    m+'757D96',m+'BDC4D6',m+'BEC6D6',m+'777F99',m+'BEC6D6',m+'7B839C',m+'767E98',m+'ABB1C3',
+	    m+'A7ADBF',m+'182433',m+'405476',m+'3E4651',m+'3F3F3F',m+'3F5372',m+'252232',m+'3B354E',
+	    m+'494360',m+'363147',m+'242130',m+'343E57',m+'405476',m+'3E5373',m+'182433',m+'000000',
+	    m+'181006',m+'000000',m+'533815',m+'624219',m+'A16624',m+'A26624',m+'A16624',m+'A26624',
+	    m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A26624',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'A16625',m+'A16624',m+'955E22',
+	    m+'5E4019',m+'000000',m+'5D4019',m+'0F0A03',m+'000000',m+'757D96',m+'A7AEC2',m+'BEC6D6',
+	    m+'8D95AC',m+'747C96',m+'7F869F',m+'ABB1C3',m+'A7ADBF',m+'182333',m+'405476',m+'3F506A',
+	    m+'3F3F3F',m+'666666',m+'3F3F3F',m+'262E37',m+'1D2738',m+'45405C',m+'494360',m+'494260',
+	    m+'242130',m+'405476',m+'3D5272',m+'182333',m+'000000',m+'5E4018',m+'A16624',m+'A16625',
+	    m+'A16624',m+'A16625',m+'A16624',m+'81541F',m+'5E4019',m+'000000',m+'5F657A',m+'777F99',
+	    m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',
+	    m+'BEC6D6',m+'9AA2B7',m+'747C96',m+'8088A0',m+'ABB1C3',m+'172433',m+'405476',m+'3F4E66',
+	    m+'3F3F3F',m+'666666',m+'404040',m+'3A3A3A',m+'000000',m+'101823',m+'172433',m+'1C2637',
+	    m+'3C3A54',m+'494360',m+'413B55',m+'252233',m+'405476',m+'1A2737',m+'172332',m+'000000',
+	    m+'513815',m+'624219',m+'A16624',m+'A16525',m+'A16624',m+'A16625',m+'A16624',m+'A16524',
+	    m+'A16624',m+'A16525',m+'A16624',m+'A16625',m+'A16624',m+'A16524',m+'A16624',m+'A16525',
+	    m+'A16624',m+'634319',m+'553A16',m+'000000',m+'757D96',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',
+	    m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',
+	    m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'BEC6D7',m+'BEC6D6',m+'9AA2B7',m+'747C96',m+'000000',
+	    m+'747C96',m+'7E869E',m+'ABB1C3',m+'182333',m+'405476',m+'3F444D',m+'3F3F3F',m+'666666',
+	    m+'5D5D5D',m+'3F3F3F',m+'010101',m+'000000',m+'030507',m+'131D29',m+'182333',m+'182433',
+	    m+'1D2738',m+'2A2F44',m+'33344B',m+'36364E',m+'33344B',m+'282E42',m+'182433',m+'0B1018',
+	    m+'000000',m+'5D4018',m+'895820',m+'A26624',m+'A26525',m+'5D4019',m+'040201',m+'000000',
+	    m+'757D97',m+'A2A9BD',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC6D6',
+	    m+'8F96AD',m+'757D96',m+'000000',m+'6B738A',m+'788099',m+'ABB1C3',m+'182433',m+'3F5475',
+	    m+'405576',m+'3F3F3F',m+'494949',m+'666666',m+'444444',m+'3F3F3F',m+'000000',m+'5D4018',
+	    m+'915C21',m+'A26624',m+'A26525',m+'986023',m+'5D4019',m+'000000',m+'050607',m+'757D97',
+	    m+'BEC5D7',m+'BEC6D6',m+'7D859E',m+'727A93',m+'000000',m+'484D5D',m+'757D97',m+'ABB1C3',
+	    m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',m+'182433',m+'25344A',m+'405576',m+'405476',m+'405576',
+	    m+'3F4A5C',m+'3F3F3F',m+'656565',m+'666666',m+'3F3F3F',m+'494E5E',m+'000000',m+'5D4018',
+	    m+'7B501E',m+'A26624',m+'A26525',m+'5D4019',m+'020200',m+'000000',m+'757D96',m+'A5ACC0',
+	    m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',
+	    m+'BEC5D6',m+'BEC6D6',m+'757D96',m+'000000',m+'24272F',m+'757D97',m+'ABB1C3',m+'AAB1C3',
+	    m+'ABB1C3',m+'AAB1C3',m+'767E8F',m+'182433',m+'405576',m+'3F5473',m+'3F3F3F',m+'4F4F4F',
+	    m+'666666',m+'575757',m+'3F3F3F',m+'BCC4D5',m+'757D96',m+'5E657A',m+'000000',m+'503615',
+	    m+'5F4019',m+'A26624',m+'A26525',m+'64431A',m+'573C16',m+'000000',m+'757D96',m+'BEC5D6',
+	    m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',
+	    m+'747D96',m+'000000',m+'08090A',m+'757D97',m+'ABB1C2',m+'AAB1C2',m+'ABB1C2',m+'AAB1C2',
+	    m+'ABB1C2',m+'172333',m+'405576',m+'405476',m+'405576',m+'405476',m+'405576',m+'3F5475',
+	    m+'3F3F3F',m+'434343',m+'666666',m+'3F3F3F',m+'A7ADBB',m+'BEC5D6',m+'ABB2C6',m+'757D96',
+	    m+'000000',m+'040200',m+'5D4018',m+'9B6223',m+'A26624',m+'A26525',m+'784F1D',m+'5D4019',
+	    m+'000000',m+'6E768E',m+'7C849D',m+'BEC5D7',m+'BEC6D6',m+'BEC5D6',m+'BAC1D3',m+'757D96',
+	    m+'000000',m+'757D97',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'192534',
+	    m+'1F2D3F',m+'405576',m+'3F5372',m+'3F3F3F',m+'444444',m+'666666',m+'515151',m+'3F3F3F',
+	    m+'BEC5D6',m+'BEC6D6',m+'8991A8',m+'757D96',m+'000000',m+'583B17',m+'604119',m+'A26624',
+	    m+'A26525',m+'65441A',m+'5A3D18',m+'000000',m+'757D97',m+'BEC5D6',m+'BEC6D6',m+'BDC4D5',
+	    m+'757D96',m+'000000',m+'757D96',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'AAB0C2',m+'182333',
+	    m+'405576',m+'3F4959',m+'3F3F3F',m+'515151',m+'666666',m+'656565',m+'3F3F3F',m+'BEC6D6',
+	    m+'757D96',m+'000000',m+'5D4018',m+'82541F',m+'A26624',m+'A26525',m+'5D4019',m+'040301',
+	    m+'000000',m+'757D97',m+'BEC5D7',m+'BEC5D6',m+'757D96',m+'000000',m+'747D97',m+'ABB1C2',
+	    m+'172433',m+'202E41',m+'405476',m+'3F4D63',m+'3F3F3F',m+'414141',m+'656565',m+'666666',
+	    m+'3F3F3F',m+'999EAA',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'757D96',m+'000000',m+'1F1508',
+	    m+'5D4018',m+'A06524',m+'A26624',m+'A26525',m+'624219',m+'A26525',m+'986023',m+'5D4019',
+	    m+'000000',m+'383C48',m+'757D97',m+'BEC5D7',m+'BEC5D6',m+'757D96',m+'000000',m+'747D96',
+	    m+'9AA1B5',m+'AAB1C2',m+'ABB1C2',m+'AAB1C2',m+'212C3B',m+'34373B',m+'3F3F3F',m+'464646',
+	    m+'656565',m+'666666',m+'3F3F3F',m+'67696E',m+'BEC5D6',m+'757D96',m+'000000',m+'5D3F18',
+	    m+'64431A',m+'A26525',m+'5D4019',m+'A26525',m+'5D4019',m+'010000',m+'000000',m+'757D97',
+	    m+'969DB3',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC6D6',
+	    m+'757D97',m+'090A0C',m+'000000',m+'727A93',m+'7C849D',m+'ABB1C3',m+'636C7D',m+'3A3B3D',
+	    m+'424242',m+'666666',m+'3F3F3F',m+'5F6166',m+'BEC6D6',m+'BBC2D3',m+'757D96',m+'000000',
+	    m+'050401',m+'5D4019',m+'9F6424',m+'A26525',m+'764D1D',m+'5D4019',m+'A26525',m+'5D4019',
+	    m+'281B0A',m+'000000',m+'757D97',m+'BDC4D5',m+'BEC5D7',m+'BEC6D6',m+'8189A2',m+'727A93',
+	    m+'000000',m+'17191E',m+'757D96',m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',
+	    m+'A7ADBF',m+'182433',m+'3F3F3F',m+'5A5A5A',m+'666666',m+'3F3F3F',m+'7C7F87',m+'BEC6D6',
+	    m+'BFC6D6',m+'BEC6D6',m+'757D97',m+'4B5061',m+'000000',m+'5D4019',m+'82541F',m+'A26525',
+	    m+'5D4019',m+'A26525',m+'5D4019',m+'241809',m+'000000',m+'757D96',m+'BEC5D6',m+'BEC5D7',
+	    m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC6D6',
+	    m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'757D96',m+'000000',m+'757D96',m+'AAB1C3',m+'ABB1C3',
+	    m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',m+'182433',m+'405576',m+'3F3F3F',m+'636363',m+'666666',
+	    m+'636363',m+'3F3F3F',m+'B1B7C6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',
+	    m+'BEC6D6',m+'BEC5D6',m+'757D96',m+'000000',m+'5D4019',m+'80531E',m+'A26525',m+'5D4019',
+	    m+'1A1207',m+'5D4019',m+'A26525',m+'9B6223',m+'5D4019',m+'010100',m+'000000',m+'757D97',
+	    m+'BEC5D7',m+'BEC6D6',m+'757D96',m+'030303',m+'000000',m+'757D96',m+'AAB1C3',m+'ABB1C2',
+	    m+'AAB1C2',m+'ABB1C3',m+'ABB1C2',m+'AAB1C3',m+'ABB1C2',m+'000001',m+'040506',m+'14171B',
+	    m+'3F3F3F',m+'646464',m+'666666',m+'474747',m+'3F3F3F',m+'BEC6D6',m+'757D96',m+'0C0D10',
+	    m+'000000',m+'5D4019',m+'A26525',m+'614119',m+'4F3614',m+'4C3314',m+'64431A',m+'A26525',
+	    m+'5F4019',m+'533915',m+'000000',m+'757D96',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',
+	    m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC6D6',m+'939BB1',m+'757D96',m+'000000',m+'757D96',
+	    m+'8F96AC',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'000000',m+'111316',m+'15191C',m+'020303',
+	    m+'131619',m+'3F3F3F',m+'5F5F5F',m+'666666',m+'636363',m+'3F3F3F',m+'8F939E',m+'BEC6D6',
+	    m+'767E97',m+'585E71',m+'000000',m+'563A16',m+'64431A',m+'A26525',m+'5F4019',m+'4A3213',
+	    m+'000000',m+'5D4019',m+'604119',m+'5B3E17',m+'000000',m+'030405',m+'757D97',m+'BEC5D7',
+	    m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC6D6',m+'BEC5D6',
+	    m+'BEC6D6',m+'BEC5D6',m+'757D96',m+'000000',m+'2C303A',m+'757D96',m+'AAB1C3',m+'000000',
+	    m+'1B1E21',m+'1B1E22',m+'342B29',m+'2A2625',m+'85837C',m+'3F3F3F',m+'4B4B4B',m+'666666',
+	    m+'656565',m+'3F3F3F',m+'4C4D4F',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',
+	    m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'777F99',m+'666D83',m+'000000',m+'281B0A',m+'5D4019',
+	    m+'A26525',m+'A16524',m+'5D4019',m+'100A04',m+'000000',m+'5D4019',m+'171006',m+'000000',
+	    m+'060709',m+'757D97',m+'BEC5D7',m+'BEC6D6',m+'848CA4',m+'747C96',m+'000000',m+'747D96',
+	    m+'ABB1C2',m+'000000',m+'1A1D20',m+'222528',m+'121315',m+'0B0C0E',m+'1E2023',m+'38393A',
+	    m+'3F3F3F',m+'666666',m+'3F3F3F',m+'434343',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',
+	    m+'BEC6D6',m+'757D97',m+'414655',m+'000000',m+'5D4019',m+'764D1D',m+'A26525',m+'68451A',
+	    m+'5D4019',m+'000000',m+'0A0B0D',m+'757D97',m+'BEC5D7',m+'BEC5D6',m+'757D96',m+'000000',
+	    m+'747D96',m+'A8AFC1',m+'AAB1C2',m+'ABB1C2',m+'AAB1C2',m+'ABB1C2',m+'AAB1C2',m+'040404',
+	    m+'010101',m+'010102',m+'282B2F',m+'292C2F',m+'292C30',m+'282C2F',m+'3F3F3F',m+'4F4F4F',
+	    m+'666666',m+'606060',m+'3F3F3F',m+'525356',m+'BEC5D6',m+'AEB5C8',m+'757D96',m+'0D0E11',
+	    m+'000000',m+'5D4019',m+'A26525',m+'6F491C',m+'5D4019',m+'000000',m+'050506',m+'757D97',
+	    m+'BEC5D7',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'969EB4',m+'757D96',m+'000000',
+	    m+'6E768F',m+'7B829B',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'050505',
+	    m+'060606',m+'020202',m+'080808',m+'1E1E1E',m+'282727',m+'222121',m+'1D1D1D',m+'3F3F3F',
+	    m+'676C7F',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',
+	    m+'B2B9CC',m+'757D96',m+'4E5364',m+'0D0908',m+'120400',m+'020000',m+'000000',m+'5D4019',
+	    m+'3F2B10',m+'000000',m+'757D97',m+'BEC5D7',m+'BEC6D6',m+'757D97',m+'0A0B0E',m+'000000',
+	    m+'010101',m+'757D97',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'5B5E67',
+	    m+'070707',m+'272626',m+'1F1F1F',m+'232323',m+'4B4B4B',m+'484848',m+'464646',m+'424444',
+	    m+'1B6764',m+'09807C',m+'44818E',m+'757D97',m+'979FB4',m+'B7BED0',m+'BEC6D6',m+'BAC1D3',
+	    m+'99A1B6',m+'757D97',m+'1E2027',m+'232323',m+'310B00',m+'7D1D00',m+'841F00',m+'7D1D00',
+	    m+'2E0B00',m+'0D0D0D',m+'000000',m+'231709',m+'000000',m+'757D96',m+'BEC5D6',m+'BEC5D7',
+	    m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC6D6',m+'BCC3D4',m+'757D96',m+'000000',m+'757D96',
+	    m+'AAB0C2',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'080808',m+'282727',
+	    m+'252525',m+'4D4D4D',m+'4C4C4C',m+'494A49',m+'09817D',m+'0A8A87',m+'087874',m+'06635E',
+	    m+'055954',m+'055550',m+'05544F',m+'05534E',m+'04524D',m+'0F5452',m+'195757',m+'135655',
+	    m+'06605B',m+'097D79',m+'0A8C89',m+'193735',m+'0D0D0D',m+'202020',m+'2D0B00',m+'781C00',
+	    m+'7C1D00',m+'781B00',m+'31140B',m+'464646',m+'000000',m+'757D96',m+'BEC5D6',m+'BEC5D7',
+	    m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',
+	    m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'7F869F',m+'707891',m+'000000',
+	    m+'6E758E',m+'7B839C',m+'AAB1C2',m+'ABB1C2',m+'AAB1C2',m+'080808',m+'282727',m+'0C0C0C',
+	    m+'4D4D4D',m+'415050',m+'0A8A86',m+'087773',m+'044E48',m+'013630',m+'01302A',m+'012F29',
+	    m+'01312B',m+'023B36',m+'065C57',m+'09837F',m+'09827E',m+'161616',m+'030303',m+'1F1F1F',
+	    m+'292929',m+'303030',m+'363636',m+'2E0C01',m+'781C00',m+'7D1D00',m+'791C00',m+'220700',
+	    m+'000000',m+'757D97',m+'BEC5D7',m+'BEC6D6',m+'757D96',m+'0A0B0D',m+'000000',m+'757D96',
+	    m+'ABB1C3',m+'1F2022',m+'080808',m+'1F1E1E',m+'282727',m+'080808',m+'4C4C4C',m+'0A8682',
+	    m+'097E7A',m+'055550',m+'023832',m+'012F29',m+'022F29',m+'022F28',m+'012E28',m+'01342E',
+	    m+'044A45',m+'08736F',m+'0A8985',m+'1E2525',m+'202020',m+'000000',m+'262626',m+'2C2C2C',
+	    m+'333333',m+'2F0B00',m+'7C1D00',m+'831E00',m+'7D1D00',m+'2E0B00',m+'000000',m+'757D96',
+	    m+'B4BBCD',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'757D97',m+'000000',m+'757D97',m+'A3A9BC',
+	    m+'AAB1C3',m+'AAB1C2',m+'ABB1C3',m+'AAB1C3',m+'AAB1C2',m+'AAB1C3',m+'AAB1C2',m+'AAB0C2',
+	    m+'050505',m+'080808',m+'141414',m+'1E1E1D',m+'4C4C4C',m+'14726F',m+'0A8884',m+'076763',
+	    m+'03413C',m+'01312B',m+'012E28',m+'022F29',m+'01302A',m+'023D37',m+'06605B',m+'098581',
+	    m+'09807C',m+'202020',m+'121212',m+'232323',m+'292929',m+'303030',m+'363636',m+'3A3432',
+	    m+'392A25',m+'030000',m+'000000',m+'757D97',m+'8D95AC',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',
+	    m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'A0A7BC',m+'757D96',m+'000000',m+'2F323C',
+	    m+'757D96',m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',m+'ABB1C3',m+'AAB1C3',m+'050505',m+'090909',
+	    m+'181817',m+'898984',m+'1B1B1B',m+'4B4B4B',m+'0A8884',m+'087975',m+'04504A',m+'023630',
+	    m+'012F29',m+'022F28',m+'012E28',m+'01352F',m+'044D48',m+'087773',m+'0A8985',m+'1F1F1F',
+	    m+'0A0A0A',m+'202020',m+'2D0B00',m+'7B1C00',m+'7F1D00',m+'791C00',m+'2F0F05',m+'202020',
+	    m+'010101',m+'000000',m+'313540',m+'757D97',m+'BEC5D7',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',
+	    m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'7A819B',m+'676F87',m+'000000',m+'757D96',
+	    m+'AAB1C2',m+'ABB1C2',m+'AAB1C2',m+'ABB1C2',m+'AAB1C2',m+'2C2E32',m+'040404',m+'080808',
+	    m+'373734',m+'090909',m+'4C4C4C',m+'097E7A',m+'0A8682',m+'06615D',m+'023E38',m+'01312B',
+	    m+'022F28',m+'012E28',m+'01312B',m+'03413C',m+'076863',m+'0A8885',m+'0A736F',m+'000000',
+	    m+'202020',m+'2E0B00',m+'7C1D00',m+'811E00',m+'7B1C00',m+'2E0B00',m+'0B0B0B',m+'040404',
+	    m+'000000',m+'757D97',m+'BEC5D7',m+'BEC6D6',m+'757D96',m+'292C35',m+'20222A',m+'757D96',
+	    m+'ABB1C3',m+'ABB1C2',m+'ABB1C3',m+'AAB1C3',m+'AAB1C2',m+'ABB1C3',m+'ABB1C2',m+'AAB1C3',
+	    m+'ABB1C3',m+'050505',m+'090909',m+'1E1D1D',m+'272626',m+'3B3B3B',m+'494C4C',m+'0A8985',
+	    m+'087570',m+'044C46',m+'01342F',m+'012F29',m+'012E28',m+'012F29',m+'01302A',m+'01312B',
+	    m+'01332D',m+'013630',m+'023D38',m+'04504B',m+'08736F',m+'0A8B87',m+'097470',m+'202020',
+	    m+'131313',m+'000000',m+'070605',m+'0C0300',m+'151617',m+'000000',m+'0B0B0B',m+'0A0A0A',
+	    m+'050505',m+'000000',m+'757D97',m+'BEC5D7',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',
+	    m+'BEC5D6',m+'757D96',m+'060708',m+'060709',m+'757D96',m+'969CB2',m+'ABB1C3',m+'AAB1C3',
+	    m+'ABB1C3',m+'050505',m+'0F0F0F',m+'282727',m+'080808',m+'4D4D4D',m+'4C4C4C',m+'097E7A',
+	    m+'0A8885',m+'076D69',m+'04504B',m+'034641',m+'044944',m+'04514C',m+'055B56',m+'076560',
+	    m+'086F6B',m+'087975',m+'09827E',m+'0A8985',m+'0A8884',m+'115E5B',m+'222222',m+'202020',
+	    m+'090909',m+'4D4D4D',m+'080808',m+'3E4145',m+'000000',m+'040404',m+'1A1B1D',m+'AEB5C8',
+	    m+'757D96',m+'000000',m+'757D96',m+'959DB3',m+'BEC5D6',m+'BEC6D6',m+'757D96',m+'000101',
+	    m+'000000',m+'010102',m+'61687E',m+'757D96',m+'767E98',m+'8A91A8',m+'989FB3',m+'A1A8BB',
+	    m+'A7ADC0',m+'737783',m+'161515',m+'282727',m+'202020',m+'4D4D4D',m+'4D4D4C',m+'4A4A4A',
+	    m+'166D6A',m+'0A8884',m+'0A8B87',m+'0A8986',m+'0A8985',m+'098783',m+'09827E',m+'146D6A',
+	    m+'224F4D',m+'2E3333',m+'2D2D2D',m+'2B2B2B',m+'282828',m+'1D1D1D',m+'0E0E0E',m+'161616',
+	    m+'444343',m+'494949',m+'1D1D1D',m+'232528',m+'323539',m+'191B1D',m+'141416',m+'BEC6D6',
+	    m+'99A1B6',m+'757D97',m+'000000',m+'131419',m+'757D96',m+'BEC5D7',m+'BEC5D6',m+'747D96',
+	    m+'000000',m+'070707',m+'282727',m+'090909',m+'4A4A4A',m+'4B4B4C',m+'494949',m+'464646',
+	    m+'444444',m+'414141',m+'353535',m+'252525',m+'161616',m+'090909',m+'131212',m+'202020',
+	    m+'2F2E2E',m+'333232',m+'222121',m+'0C0C0C',m+'090A0A',m+'1A1C1E',m+'2A2D31',m+'292C30',
+	    m+'272A2E',m+'17191B',m+'000000',m+'080909',m+'BEC5D6',m+'8890A8',m+'747D96',m+'000000',
+	    m+'4A4F60',m+'757D97',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',
+	    m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'BEC5D7',m+'BEC5D6',m+'757D96',
+	    m+'040405',m+'000000',m+'020202',m+'060606',m+'0F0F0F',m+'282727',m+'272626',m+'222121',
+	    m+'1A1919',m+'111111',m+'080808',m+'252524',m+'1F1F1E',m+'6A6A65',m+'434341',m+'000000',
+	    m+'222529',m+'141618',m+'060707',m+'000000',m+'010102',m+'575B62',m+'BAC1D1',m+'BEC5D6',
+	    m+'8088A0',m+'737B94',m+'000000',m+'2C2F39',m+'757D97',m+'767E98',m+'9DA4BA',m+'BDC4D5',
+	    m+'BEC5D7',m+'BEC6D6',m+'B7BED0',m+'8C94AB',m+'757D96',m+'22252C',m+'000000',m+'050505',
+	    m+'0F1011',m+'1A1B1D',m+'030303',m+'2C2F33',m+'2A2D31',m+'282B2F',m+'23262A',m+'1E2023',
+	    m+'000000',m+'1B1B1B',m+'191919',m+'393B3E',m+'686B73',m+'9CA2AF',m+'BEC6D6',m+'BCC2D3',
+	    m+'BEC6D6',m+'7D859E',m+'6F7790',m+'000000',m+'0F1013',m+'2B2E38',m+'4E5364',m+'6E768E',
+	    m+'757D97',m+'757D96',m+'757D97',m+'757D96',m+'747D96',m+'757D96',m+'747C96',m+'6B738B',
+	    m+'545A6D',m+'3C404E',m+'22242B',m+'0A0A0D',m+'000000',m+'6A728A',m+'7B839C',m+'BEC5D6',
+	    m+'7D859E',m+'717991',m+'000000',m+'757D96',m+'BEC6D6',m+'838BA3',m+'747C96',m+'000000',
+	    m+'505668',m+'757D97',m+'BEC6D6',m+'757D96',m+'111316',m+'000000',m+'030303',m+'757D96',
+	    m+'7C849D',m+'BBC2D4',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',
+	    m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',m+'BEC5D6',m+'BEC6D6',
+	    m+'A2A9BE',m+'757D96',m+'000000',m+'030303',m+'3D414F',m+'757D96',m+'757D97',m+'878EA6',
+	    m+'98A0B5',m+'A7AEC2',m+'B2BACC',m+'BBC3D4',m+'BEC6D6',m+'BEC5D6',m+'B9C0D2',m+'B2BACC',
+	    m+'ABB2C5',m+'A1A9BD',m+'959DB3',m+'878EA6',m+'757D97',m+'757D96',m+'434857',m+'000001',
+	    m+'000000',m+'010101',m+'020203',m+'030304',m+'030404',m+'030304',m+'020203',m+'010101',
+	    m+'000000', '');
+}
